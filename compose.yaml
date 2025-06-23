@@ -1,0 +1,7 @@
+services:
+  vantagepoint-server:
+    build:
+      context: .
+    ports:
+      - 5001:5001
+
