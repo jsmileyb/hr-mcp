@@ -7,4 +7,4 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Access values globally
-TOOL_NAME = os.getenv("TOOL_NAME", "UNASSIGNED_TOOL_NAME")
+TOOL_NAME = "GIA:HR POLICY"

@@ -8,12 +8,21 @@ Build all utility/helper scripts in the "utils" directory
 AUTH EXAMPLE FOR VANTAGEPOINT (payload will need to be encoded in the request):
 ```python
 # Example of how to authenticate with VantagePoint API
-import requests
-url = "https://vp.greshamsmith.com/vantagepoint/api/token"
+import httpx
+import json
 
-payload = 'Username=USER_NAME&Password=PASSWORD&grant_type=password&Integrated=N&database=Vantagepoint&Client_Id=CLIENT_ID&client_secret=SECRET'
+url = "https://az-webui-01.global.gsp/api/v1/auths/api_key"
+
 headers = {
-  'Content-Type': 'application/x-www-form-urlencoded'
+    "Content-Type": "application/json",
+    "Authorization": "Bearer TOKEN_HERE",
 }
-response = requests.request("POST", url, headers=headers, data=payload)
+
+payload = {}  # Empty dict → same as sending `{}` JSON
+
+with httpx.Client() as client:
+    response = client.post(url, headers=headers, json=payload)
+
+print(response.text)
+
 

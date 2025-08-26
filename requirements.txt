@@ -1,7 +1,9 @@
 fastapi
 uvicorn[standard]
 pydantic
-requests
+httpx
+openai
+#requests
 
 # FOR TESTING
 pytest
@@ -10,3 +12,4 @@ pytest-asyncio
 # UNUSED
 # mcp[cli]>=1.9.4
 # httpx
+
