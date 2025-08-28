@@ -3,7 +3,6 @@ import os, json, logging, sys, uuid
 
 import httpx
 
-# import requests
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -12,6 +11,9 @@ import time
 from datetime import datetime, timezone
 
 from utils.config import TOOL_NAME  # keep your import
+from auth.vp_auth import get_vantagepoint_token
+import re
+import xmltodict
 
 load_dotenv()
 
@@ -51,6 +53,9 @@ OPENAI_API_KEY = os.environ.get(
 )  # set this if you want post-processing
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")  # pick your fave
 DEBUG = os.environ.get("DEBUG", False)
+VP_BASE_URL = os.environ.get("VP_BASE_URL")
+
+PROCEDURE = os.environ.get("VP_SP_GETVACATION")
 
 
 # Log all relevant environment variables (mask sensitive values)
@@ -154,6 +159,12 @@ class EmploymentResp(BaseModel):
     leadership: LeadershipInfo
     summary: EmploymentSummary
 
+
+class VacationResp(BaseModel):
+    employee_id: Optional[str] = None
+    starting_balance: Optional[float] = None
+    current_balance: Optional[float] = None
+    instructions: Optional[str] = None
 
 # =========================
 # Helpers
@@ -299,10 +310,9 @@ async def get_current_user_email(key) -> str:
         logger.error("Failed to fetch /api/v1/auths/: %s", e)
         raise HTTPException(status_code=502, detail=f"GIA /api/v1/auths/ error: {e}")
 
-    email = payload.get("email")
-    if not email:
-        raise HTTPException(status_code=502, detail="No email in /api/v1/auths/ response")
-    return email
+    if not payload:
+        raise HTTPException(status_code=502, detail="No payload in /api/v1/auths/ response")
+    return payload
 
 
 
@@ -442,7 +452,8 @@ async def get_graph_token_async() -> Optional[str]:
         return None
 
 
-async def call_pa_workflow_async(email: str, token: Optional[str]) -> Optional[dict]:
+async def call_pa_workflow_async(payload: dict, token: Optional[str]) -> Optional[dict]:
+    logger.debug(f"call_pa_workflow_async payload: {json.dumps(payload, indent=2)} token: {'set' if token else 'unset'}")
     PA_URL = os.environ.get("PA_URL")
     if not PA_URL:
         logger.error("PA_URL not set")
@@ -453,12 +464,10 @@ async def call_pa_workflow_async(email: str, token: Optional[str]) -> Optional[d
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    body = {"CompanyEmailAddress": email}
-
     try:
         async with httpx.AsyncClient(timeout=60) as ac:
-            # r = await ac.post(PA_URL, json=body, headers=headers)
-            r = await ac.post(PA_URL, json=body)
+            # r = await ac.post(PA_URL, json=payload, headers=headers)
+            r = await ac.post(PA_URL, json=payload)
         if r.status_code == 200:
             return r.json()
         logger.error("PA workflow call failed %s: %s", r.status_code, r.text[:400])
@@ -523,6 +532,80 @@ def build_employment_payload(raw: dict) -> EmploymentResp:
     )
 
     return EmploymentResp(leadership=leadership, summary=summary)
+
+
+async def get_vacation_days(payload: dict, token: Optional[str]) -> Optional[dict]:
+    """
+    Get vacation days for a specific employee using the Power Automate API.
+    Args:
+        email (str): The email address of the employee.
+    Returns:
+        dict: API response XML.
+    Raises:
+        requests.HTTPError: If the API call fails.
+    """
+
+    access_token = token
+    # logger.info(f"[GET Vantagepoint API Token: {access_token}]")
+
+    url = f"{VP_BASE_URL}/api/Utilities/InvokeCustom/{PROCEDURE}"
+    
+    logger.debug(f"[GET /get_vacation_days] Request URL: {url}")
+    logger.debug(f"[GET /get_vacation_days] Payload: {payload}")
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/xml",
+        "Content-Type": "application/json"
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+    
+    xml = response.text
+    # Remove leading/trailing quotes if present
+    xml = xml.strip()
+    if xml.startswith('"') and xml.endswith('"'):
+        xml = xml[1:-1]
+    
+    # Handle escaped characters - decode them properly
+    xml = xml.encode().decode('unicode_escape')
+    
+    # Remove the schema block
+    xml = re.sub(r'<xs:schema.*?</xs:schema>', '', xml, flags=re.DOTALL)
+    # Remove empty <Table></Table> elements
+    xml = re.sub(r'<Table>\s*</Table>', '', xml, flags=re.DOTALL)
+    # Remove any control characters (non-printable)
+    xml = re.sub(r'[^\x09\x0A\x0D\x20-\x7E]+', '', xml)
+    # Strip leading/trailing whitespace again
+    xml = xml.strip()
+    
+    logger.debug(f"[GET /get_vacation_days] Cleaned XML: {xml[:500]}...")  # Log first 500 chars for brevity
+    
+    # Parse the XML to dict
+    parsed_xml = xmltodict.parse(xml)
+    
+    # Extract vacation balance data and clean up field names
+    try:
+        # Navigate to the Table data
+        new_dataset = parsed_xml.get('NewDataSet', {})
+        table_data = new_dataset.get('Table', {})
+        
+        # Extract and clean up the vacation data
+        vacation_data = {
+            "employee_id": table_data.get('Employee'),
+            "starting_balance": float(table_data.get('Starting_x0020_Balance', 0)) if table_data.get('Starting_x0020_Balance') else None,
+            "current_balance": float(table_data.get('Current_x0020_Balance', 0)) if table_data.get('Current_x0020_Balance') else None
+        }
+        
+        logger.debug(f"Extracted vacation data: {vacation_data}")
+        return vacation_data
+        
+    except Exception as e:
+        logger.error(f"Error parsing vacation XML data: {e}")
+        logger.debug(f"Parsed XML structure: {parsed_xml}")
+        # Return the raw parsed XML as fallback
+        return parsed_xml
 
 
 def normalize_owui_response(owui: dict) -> Tuple[str, list]:
@@ -696,11 +779,10 @@ async def ask_employment_details(req: AskReq = Body(...)):
     graph_auth = await get_graph_token_async()
     key = await get_service_token()
 
-    # 2) Call PA workflow to get the person record
-    #    TODO: use caller identity; email hardcoded for now per your note
-    # email = "smiley.baltz@greshamsmith.com"
-    email = await get_current_user_email(key)
-    employee_details = await call_pa_workflow_async(email, graph_auth)
+    current_user = await get_current_user_email(key)
+    email = current_user.get("email")
+    payload = {"CompanyEmailAddress": email}
+    employee_details = await call_pa_workflow_async(payload, graph_auth)
     if not employee_details:
         raise HTTPException(
             status_code=502, detail="Power Automate workflow returned no data"
@@ -709,3 +791,51 @@ async def ask_employment_details(req: AskReq = Body(...)):
     # 3) Build structured, market-aware response
     payload = build_employment_payload(employee_details)
     return payload
+
+@app.post("/get-my-vacation", response_model=VacationResp, summary="Get my vacation details")
+async def ask_vacation_details(req: AskReq = Body(...)):
+    """
+    Employee-specific vacation details. Use this when the user asks about their vacation balance, upcoming time off, or related inquiries.
+
+    Returns: 
+        A structured response containing the employee's vacation details and relevant information.
+    """
+    rid = uuid.uuid4().hex[:8]
+    logger.debug("ask_vacation_details[%s] model=%s", rid, req.model)
+    logger.debug(f"{'~' * 25}This is the request: {req}")
+
+    graph_auth = await get_graph_token_async()
+    key = await get_service_token()
+
+    current_user = await get_current_user_email(key)
+    email = current_user.get("email")
+    payload = {"CompanyEmailAddress": email}
+    employee_details = await call_pa_workflow_async(payload, graph_auth)
+    if not employee_details:
+        raise HTTPException(
+            status_code=502, detail="Power Automate workflow returned no data"
+        )
+    logger.debug(f"This is the employee details: {employee_details}")
+    vp_token_response = await get_vantagepoint_token()
+    if not vp_token_response:
+        raise HTTPException(
+            status_code=502, detail="Vantagepoint API token retrieval failed"
+        )
+    logger.debug(f"[GET Vantagepoint API Token: {vp_token_response}]")
+    body = {
+        "EEID": employee_details.get("EmployeeID")
+    }
+    vacation_details = await get_vacation_days(body, vp_token_response.get("access_token"))
+
+    if not vacation_details:
+        raise HTTPException(
+            status_code=502, detail="Vantagepoint Stored Procedure returned no data"
+        )
+    
+    return {
+        "employee_id": vacation_details.get("employee_id"),
+        "starting_balance": vacation_details.get("starting_balance"),
+        "current_balance": vacation_details.get("current_balance"),
+        "instructions": "The return values are in hours."
+    }
+

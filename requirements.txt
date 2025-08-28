@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 pydantic
 httpx
+xmltodict
 #requests
 
 # FOR TESTING

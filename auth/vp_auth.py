@@ -14,7 +14,7 @@ VP_DATABASE = os.environ.get("VP_DATABASE")
 VP_CLIENT_ID = os.environ.get("VP_CLIENT_ID")
 VP_CLIENT_SECRET = os.environ.get("VP_CLIENT_SECRET")
 
-def get_vantagepoint_token():
+async def get_vantagepoint_token():
     """
     Authenticate with Vantagepoint API and return the access token response.
     """
@@ -32,10 +32,12 @@ def get_vantagepoint_token():
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    response = httpx.post(url, headers=headers, data=payload)
-    response.raise_for_status()
-    return response.json()
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, data=payload)
+        response.raise_for_status()
+        return response.json()
 
 if __name__ == "__main__":
-    token_response = get_vantagepoint_token()
+    import asyncio
+    token_response = asyncio.run(get_vantagepoint_token())
     print(token_response)
