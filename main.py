@@ -1,7 +1,6 @@
 from typing import List, Optional, Tuple, Any
 import os, json, logging, sys, uuid
 
-from openai import OpenAI  # pip install openai>=1.0.0
 import httpx
 
 # import requests
@@ -22,7 +21,7 @@ load_dotenv()
 app = FastAPI(
     title="HR Handbook and Policy MCP for GIA",
     version="0.0.1",
-    description="FastAPI microservice that proxies retrieval-backed chat completions to GIA using file or collection IDs.",
+    description="MCP Server to retrieve HR policies and employee information.",
 )
 
 origins = ["*"]
@@ -538,24 +537,20 @@ def normalize_owui_response(owui: dict) -> Tuple[str, list]:
 # =========================
 # Routes
 # =========================
-@app.post(
-    "/ask-file",
-    response_model=AskResp,
-    summary="Ask HR policy questions using the Employee Handbook",
-    description=(
-        "This endpoint uses the Employee Handbook knowledge base "
-        "to answer HR policy and procedure questions. "
-        "It should be chosen when the user is asking about policies, benefits, "
-        "process steps, or other static HR handbook information."
-    ),
-)
-
+@app.post("/ask-file",response_model=AskResp,summary="Ask HR policy questions using the Employee Handbook")
 async def ask_file(req: AskReq = Body(...)):
-    """Route for handbook-based HR questions.
-    Use this when the user asks about PTO policy, benefits, time-off rules,
-    or other HR procedures documented in the employee handbook.
     """
-    """Ask HR policy questions against the Employee Handbook via GIA, with optional OpenAI post-processing."""
+    Handbook-based HR questions. Use this when the user asks about PTO policy, benefits, time-off rules, or other HR procedures documented in the employee handbook.
+    
+    Ask HR policy questions against the Employee Handbook via GIA, with optional OpenAI post-processing.
+
+    Returns: 
+        A structured response containing the answer to the HR policy question, along with relevant sources from the Employee Handbook.
+
+    Raises: 
+        HTTPException if the request fails or if no relevant information is found.
+
+    """
     rid = uuid.uuid4().hex[:8]
 
     q_preview = (req.question or "").replace("\n", " ")
@@ -623,25 +618,21 @@ async def ask_file(req: AskReq = Body(...)):
     }
 
 
-@app.post(
-    "/get-my-leadership",
-    response_model=EmploymentResp,
-    summary="Get my leadership & employment details",
-    description=(
-        "This endpoint calls Microsoft Power Automate to fetch *personalized* "
-        "HR and leadership information for the requesting employee. "
-        "It should be chosen when the user asks about their HR Partner (HRP), "
-        "Director, MVP/EVP, CLL, employee ID, hire date, nomination, or length of service (LOS)."
-    ),
-)
+@app.post("/get-my-leadership",response_model=EmploymentResp,summary="Get my leadership & employment details")
 async def ask_employment_details(req: AskReq = Body(...)):
-    """Route for employee-specific leadership details.
-    Use this when the user asks *who* their HRP, Director, MVP/EVP, or CLL is,
-    or requests personal employment details like hire date, employee ID,
-    nomination level/date, or length of service.
+    """
+    Employee-specific leadership details. Use this when the user asks *who* their HRP, Director, MVP/EVP, or CLL is, or requests personal employment details like hire date, employee ID, nomination level/date, or length of service.
+
+    Returns: 
+        A structured response containing the employee's leadership details and relevant employment information.
+
+    Raises: 
+        HTTPException if the request fails or if no relevant information is found.
+
     """
     rid = uuid.uuid4().hex[:8]
     logger.debug("ask_employment_details[%s] model=%s", rid, req.model)
+    logger.debug(f"{'~' * 25}This is the request: {req}")
 
     # 1) Get token (if your Flow requires it)
     graph_auth = await get_graph_token_async()
