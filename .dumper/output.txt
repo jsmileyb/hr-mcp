@@ -1,3 +1,86 @@
+Notes:
+------
+Initial Export
+
+Directory Structure:
+-------------------
+/ 
+├── .github/
+│   └── instructions/
+│       └── mcp_instructions.instructions.md
+├── .source/
+│   ├── employee-handbook.pdf
+│   └── State-Appendix.pdf
+├── test_scripts/
+│   ├── test_graph_and_pa.py
+│   └── test_graph_token.py
+├── utils/
+│   ├── __pycache__/
+│   │   └── config.cpython-312.pyc
+│   └── config.py
+├── .python-version
+├── compose.yaml
+├── Dockerfile
+├── install_uv.ps1
+├── main.py
+├── pyproject.toml
+├── README.md
+└── requirements.txt
+
+File Contents:
+--------------
+File: .\compose.yaml
+--------------------------------------------------
+Content of .\compose.yaml:
+services:
+  vantagepoint-server:
+    build:
+      context: .
+    ports:
+      - 5001:5001
+
+
+
+File: .\install_uv.ps1
+--------------------------------------------------
+Content of .\install_uv.ps1:
+# Check if uv is already installed
+try {
+    # Refresh PATH to include any recently installed programs
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+    
+    # Try to get uv version
+    $uvVersion = uv --version 2>$null
+    if ($uvVersion) {
+        Write-Host "[SUCCESS] uv is already installed: $uvVersion" -ForegroundColor Green
+        Write-Host "[INFO] No installation needed - you're all set!" -ForegroundColor Cyan
+        exit 0
+    }
+} catch {
+    # uv not found, continue with installation
+}
+
+Write-Host "[INFO] Installing uv..." -ForegroundColor Yellow
+
+# Install uv using the official installer
+try {
+    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+    
+    # Refresh PATH after installation
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+    
+    # Verify installation
+    $uvVersion = uv --version
+    Write-Host "[SUCCESS] Successfully installed uv: $uvVersion" -ForegroundColor Green
+    
+} catch {
+    Write-Host "[ERROR] Failed to install uv: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+File: .\main.py
+--------------------------------------------------
+Content of .\main.py:
 from typing import List, Optional, Tuple, Any
 import os, json, logging, sys, uuid
 
@@ -110,7 +193,7 @@ class AskReq(BaseModel):
     model: str = Field(
         "gpt-5", description="Model id as registered in GIA (/api/models)"
     )
-    stream: bool = Field(True, description="Use streamed responses (server-side)")
+    stream: bool = Field(False, description="Use streamed responses (server-side)")
 
 
 class AskResp(BaseModel):
@@ -159,37 +242,62 @@ class EmploymentResp(BaseModel):
 # Helpers
 # =========================
 
-async def get_service_token() -> str:
+
+# --- Service token cache ---
+_service_token: str | None = None
+_service_token_type: str = "Bearer"  # OWUI usually returns "Bearer"
+
+async def get_service_token(force: bool = False) -> tuple[str, str]:
     """
-    Exchange the bootstrap JWT for a service/API token via /api/v1/auths/api_key.
+    Exchange the bootstrap JWT for a service/API token via /api/v1/auths/.
     Caches the token. Returns (token, token_type).
     """
     global _service_token, _service_token_type
     if client is None:
         raise RuntimeError("HTTP client not initialized")
 
+    if _service_token and not force:
+        return _service_token, _service_token_type
+
     # Your env expects GET here; Accept JSON; client already has Bearer <JWT>
     try:
-        r = await client.get("/api/v1/auths/api_key", headers={"Accept": "application/json", "Authorization": f"Bearer {JWT}"})
+        r = await client.get("/api/v1/auths/", headers={"Accept": "application/json"})
         r.raise_for_status()
         payload = r.json()
     except httpx.HTTPError as e:
-        logger.error("Failed to fetch /api/v1/auths/api_key: %s", e)
-        raise HTTPException(status_code=502, detail=f"GIA /api/v1/auths/api_key error: {e}")
+        logger.error("Failed to fetch /api/v1/auths/: %s", e)
+        raise HTTPException(status_code=502, detail=f"GIA /api/v1/auths/ error: {e}")
     except Exception as e:
-        logger.exception("Non-HTTP error parsing /api/v1/auths/api_key")
-        raise HTTPException(status_code=502, detail=f"Bad /api/v1/auths/api_key payload: {e}")
+        logger.exception("Non-HTTP error parsing /api/v1/auths/")
+        raise HTTPException(status_code=502, detail=f"Bad /api/v1/auths/ payload: {e}")
 
     # Token fields per your sample: { "token": "...", "token_type": "Bearer", "email": ... }
-    key = payload.get("api_key")
-    if not key:
-        raise HTTPException(status_code=502, detail="No 'api_key' in /api/v1/auths/ response")
+    token = payload.get("token")
+    ttype = payload.get("token_type") or "Bearer"
+    if not token:
+        raise HTTPException(status_code=502, detail="No 'token' in /api/v1/auths/ response")
 
-    logger.debug(f"Returned key is: {key}")
-    return key
+    _service_token, _service_token_type = token, ttype
+    logger.debug("Cached service token (type=%s) from /api/v1/auths/", _service_token_type)
+    return _service_token, _service_token_type
+
+def _authz_headers(extra: dict | None = None) -> dict:
+    """
+    Build Authorization header using the service token if obtained,
+    otherwise fall back to the bootstrap JWT.
+    """
+    hdrs = {}
+    if _service_token:
+        hdrs["Authorization"] = f"{_service_token_type} {_service_token}"
+    else:
+        # Bootstrap path – we haven't hit /auths/ yet
+        hdrs["Authorization"] = f"Bearer {JWT}"
+    if extra:
+        hdrs.update(extra)
+    return hdrs
 
 
-async def ensure_model(model_name: str, key: str) -> str:
+async def ensure_model(model_name: str) -> str:
     """
     Ensure OWUI recognizes the requested model. Applies MODEL_ALIAS mapping.
     Handles payloads that are:
@@ -209,7 +317,7 @@ async def ensure_model(model_name: str, key: str) -> str:
 
     desired = MODEL_ALIAS.get(model_name, model_name)
     try:
-        r = await client.get("/api/models", headers={"Accept": "application/json", "Authorization": f"Bearer {JWT}"})
+        r = await client.get("/api/models", headers=_authz_headers({"Accept": "application/json"}))
         r.raise_for_status()
         payload = r.json()
     except httpx.HTTPError as e:
@@ -282,7 +390,7 @@ async def ensure_model(model_name: str, key: str) -> str:
     )
 
 
-async def get_current_user_email(key) -> str:
+async def get_current_user_email() -> str:
     """
     Fetch the authenticated user's email from OWUI /api/v1/auths/.
     Uses service token if available, otherwise the bootstrap JWT.
@@ -292,7 +400,7 @@ async def get_current_user_email(key) -> str:
 
     # We can also refresh service token here; but GET works with JWT in many setups.
     try:
-        r = await client.get("/api/v1/auths/", headers={"Accept": "application/json", "Authorization": f"Bearer {key}"})
+        r = await client.get("/api/v1/auths/", headers=_authz_headers({"Accept": "application/json"}))
         r.raise_for_status()
         payload = r.json()
     except httpx.HTTPError as e:
@@ -622,8 +730,7 @@ async def ask_file(req: AskReq = Body(...)):
         q_preview,
     )
 
-    key = await get_service_token()
-    model_id = await ensure_model(req.model, key)
+    model_id = await ensure_model(req.model)
     logger.debug("ask_file[%s] resolved_model=%s", rid, model_id)
 
     if not HARDCODED_FILE_ID and DEBUG:
@@ -694,12 +801,11 @@ async def ask_employment_details(req: AskReq = Body(...)):
 
     # 1) Get token (if your Flow requires it)
     graph_auth = await get_graph_token_async()
-    key = await get_service_token()
 
     # 2) Call PA workflow to get the person record
     #    TODO: use caller identity; email hardcoded for now per your note
     # email = "smiley.baltz@greshamsmith.com"
-    email = await get_current_user_email(key)
+    email = await get_current_user_email()
     employee_details = await call_pa_workflow_async(email, graph_auth)
     if not employee_details:
         raise HTTPException(
@@ -709,3 +815,162 @@ async def ask_employment_details(req: AskReq = Body(...)):
     # 3) Build structured, market-aware response
     payload = build_employment_payload(employee_details)
     return payload
+
+
+File: .\README.md
+--------------------------------------------------
+Content of .\README.md:
+# HR-MCP
+
+A Python-based project for HR management using Model Context Protocol (MCP).
+
+## Project Structure
+- `main.py`: Main application entry point
+- `utils/`: Utility modules
+- `requirements.txt`: Python dependencies
+- `Dockerfile` & `compose.yaml`: Containerization and orchestration
+
+## Setup
+1. **Clone the repository**
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Run the application**:
+   ```bash
+   python main.py
+   ```
+
+## Docker Usage
+To build and run with Docker:
+```bash
+docker build -t hr-mcp .
+docker run --rm -it hr-mcp
+```
+
+Or use Docker Compose:
+```bash
+docker compose up --build
+```
+
+## Configuration
+Edit `utils/config.py` for custom settings.
+
+## Contributing
+Pull requests are welcome. For major changes, please open an issue first.
+
+## License
+MIT
+
+
+File: .\requirements.txt
+--------------------------------------------------
+Content of .\requirements.txt:
+fastapi
+uvicorn[standard]
+pydantic
+httpx
+#requests
+
+# FOR TESTING
+pytest
+pytest-asyncio
+
+# UNUSED
+# mcp[cli]>=1.9.4
+# httpx
+
+
+
+File: .github\instructions\mcp_instructions.instructions.md
+--------------------------------------------------
+Content of .github\instructions\mcp_instructions.instructions.md:
+**All work will eventually connect to an Model Context Protocol (MCP) server. Keep that in mind.
+
+Build all test scripts in the "test_scripts" directory
+Build all auth scripts in the "auth" directory
+Build all project scripts in the "project" directory
+Build all utility/helper scripts in the "utils" directory
+
+AUTH EXAMPLE FOR VANTAGEPOINT (payload will need to be encoded in the request):
+```python
+# Example of how to authenticate with VantagePoint API
+import httpx
+import json
+
+url = "https://az-webui-01.global.gsp/api/v1/auths/api_key"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer TOKEN_HERE",
+}
+
+payload = {}  # Empty dict → same as sending `{}` JSON
+
+with httpx.Client() as client:
+    response = client.post(url, headers=headers, json=payload)
+
+print(response.text)
+
+
+
+
+File: test_scripts\test_graph_and_pa.py
+--------------------------------------------------
+Content of test_scripts\test_graph_and_pa.py:
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from main import get_graph_token, call_pa_workflow
+
+def main():
+    email = "smiley.baltz@greshamsmith.com"
+    print(f"Testing get_graph_token()...")
+    token = get_graph_token()
+    print(f"Token: {token}")
+    if not token:
+        print("Failed to obtain token. Aborting workflow call.")
+        return
+    print(f"Testing call_pa_workflow() with email: {email}")
+    response = call_pa_workflow(email)
+    print(f"Workflow response: {response}")
+
+if __name__ == "__main__":
+    main()
+
+
+File: test_scripts\test_graph_token.py
+--------------------------------------------------
+Content of test_scripts\test_graph_token.py:
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from main import get_graph_token
+
+def main():
+    token = get_graph_token()
+    if token:
+        print(f"Access token: {token}")
+    else:
+        print("Failed to obtain token.")
+
+if __name__ == "__main__":
+    main()
+
+
+File: utils\config.py
+--------------------------------------------------
+Content of utils\config.py:
+# app/config.py
+
+import os
+from dotenv import load_dotenv
+
+# Load .env once at startup
+load_dotenv()
+
+# Access values globally
+TOOL_NAME = "GIA:HR POLICY"
+
