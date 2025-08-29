@@ -752,8 +752,8 @@ async def ask_file(req: AskReq = Body(...)):
         "normalized_text": normalized_text,
         "sources": sources,
         "instructions": (
-            "You can use the 'final_text' field as the best answer. "
             "Your response requires source mapping to the Employee Handbook and must include the page number(s) where the information was found. "
+            f"Use {sources} to map page numbers to show employees where to find the information the link to the handbook is: https://gspnet4.sharepoint.com/sites/HR/Shared%20Documents/employee-handbook.pdf. "
             "DO NOT make up content - if you cannot find an answer, state the you cannot find the answer and refer the user to the Employee Handbook, their HRP, or contact hr@greshamsmith.com. "
         ),
     }
@@ -832,10 +832,20 @@ async def ask_vacation_details(req: AskReq = Body(...)):
             status_code=502, detail="Vantagepoint Stored Procedure returned no data"
         )
     
+    linked_call = AskReq(
+        question=f"What is my PTO accrual rate for {employee_details.get('YearsWithGreshamSmith')} and {employee_details.get('CLL')}",
+        model=req.model,
+        stream=True
+    )
+    
     return {
         "employee_id": vacation_details.get("employee_id"),
         "starting_balance": vacation_details.get("starting_balance"),
         "current_balance": vacation_details.get("current_balance"),
-        "instructions": "The return values are in hours."
+        "instructions": (
+            "The return values are in hours - show the results in hours and days. Our standard work day is 8 hours. "
+            "If no vacation balance is found, refer the user to their HRP or manager - do not offer to refer to the servicedesk@greshamsmith.com."
+            f"Refer to the \"/ask-file\" endpoint for a breakdown on accrual details for individual employees using a company tenure using: {linked_call} "
+            )
     }
 
