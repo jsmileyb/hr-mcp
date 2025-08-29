@@ -7,6 +7,7 @@ import re
 import xmltodict
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
+from utils.client_registry import client_registry
 
 load_dotenv()
 
@@ -15,13 +16,18 @@ logger = logging.getLogger(__name__)
 VP_BASE_URL = os.environ.get("VP_BASE_URL")
 PROCEDURE = os.environ.get("VP_SP_GETVACATION")
 
-async def get_vacation_days(payload: Dict[str, Any], token: Optional[str]) -> Optional[Dict[str, Any]]:
+async def get_vacation_days(
+    payload: Dict[str, Any], 
+    token: Optional[str], 
+    client: Optional[httpx.AsyncClient] = None
+) -> Optional[Dict[str, Any]]:
     """
     Get vacation days for a specific employee using the Vantagepoint API.
     
     Args:
         payload (dict): Request payload containing employee information
         token (str): Access token for Vantagepoint API
+        client: Optional shared AsyncClient to use, otherwise gets one from registry
         
     Returns:
         dict: Parsed vacation data or None if the API call fails
@@ -42,9 +48,12 @@ async def get_vacation_days(payload: Dict[str, Any], token: Optional[str]) -> Op
         "Content-Type": "application/json"
     }
     
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, headers=headers, json=payload)
-        response.raise_for_status()
+    # Use provided client or get one from registry
+    if client is None:
+        client = client_registry.get_client(VP_BASE_URL)
+    
+    response = await client.post(url, headers=headers, json=payload)
+    response.raise_for_status()
     
     xml = response.text
     # Remove leading/trailing quotes if present

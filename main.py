@@ -2,6 +2,7 @@ from typing import Optional
 import os, json, logging, sys, uuid
 
 import httpx
+import asyncio
 
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +22,9 @@ from utils.employment_data import EmploymentResp, build_employment_payload
 from utils.vacation_data import VacationResp
 from utils.http_client import ensure_model, post_chat_completions
 from utils.response_processor import normalize_owui_response
+from utils.client_registry import client_registry
 from auth import (
-    get_service_token,
+    get_cached_service_token,
     get_current_user_email,
     get_graph_token_async,
     call_pa_workflow_async,
@@ -83,9 +85,15 @@ async def _startup():
     global client
     client = httpx.AsyncClient(
         base_url=OWUI,
-        headers={"Authorization": f"Bearer {JWT}"},
-        timeout=60,
+        headers={"Accept": "application/json"},
+        timeout=httpx.Timeout(connect=5, read=30, write=30, pool=30),
+        limits=httpx.Limits(max_keepalive_connections=32, max_connections=128),
+        http2=True,  # <-- big win when OWUI supports it
     )
+    
+    # Register the main GIA client in the registry
+    client_registry.set_gia_client(client)
+    
     logger.info("HTTP client initialized for GIA at %s", OWUI)
 
 
@@ -95,6 +103,10 @@ async def _shutdown():
     if client:
         await client.aclose()
         logger.info("HTTP client closed")
+    
+    # Close all registered clients
+    await client_registry.close_all()
+    logger.info("All shared clients closed")
 
 
 # =========================
@@ -146,7 +158,7 @@ async def ask_file(req: AskReq = Body(...)):
         f"~~~ payload: {payload} ~~~",
     )
 
-    owui_resp = await post_chat_completions(client, payload)
+    owui_resp = await post_chat_completions(client, payload, JWT)
     logger.debug(f"~~~ owui_resp: {owui_resp} ~~~")
     logger.debug(
         "ask_file[%s] received OWUI response keys=%s",
@@ -198,9 +210,9 @@ async def ask_employment_details(req: AskReq = Body(...)):
 
     # 1) Get token (if your Flow requires it)
     graph_auth = await get_graph_token_async()
-    key = await get_service_token(client, JWT)
+    key = await get_cached_service_token(client, JWT)
 
-    current_user = await get_current_user_email(client, key)
+    current_user = await get_current_user_email(client, JWT)
     email = current_user.get("email")
     payload = {"CompanyEmailAddress": email}
     employee_details = await call_pa_workflow_async(payload, graph_auth)
@@ -218,7 +230,7 @@ async def ask_employment_details(req: AskReq = Body(...)):
 async def ask_vacation_details(req: AskReq = Body(...)):
     """
     Employee-specific vacation details. Use this when the user asks about their vacation balance, upcoming time off, or related inquiries.
-
+    
     Returns: 
         A structured response containing the employee's vacation details and relevant information.
     """
@@ -226,40 +238,45 @@ async def ask_vacation_details(req: AskReq = Body(...)):
     logger.debug("ask_vacation_details[%s] model=%s", rid, req.model)
     logger.debug(f"{'~' * 25}This is the request: {req}")
 
-    graph_auth = await get_graph_token_async()
-    key = await get_service_token(client, JWT)
+    # 1) Fetch Graph token and OWUI service token concurrently
+    graph_auth_coro = get_graph_token_async()
+    service_token_coro = get_cached_service_token(client, JWT)
+    graph_auth, service_token = await asyncio.gather(graph_auth_coro, service_token_coro)
 
-    current_user = await get_current_user_email(client, key)
-    email = current_user.get("email")
-    payload = {"CompanyEmailAddress": email}
-    employee_details = await call_pa_workflow_async(payload, graph_auth)
+    if not graph_auth:
+        raise HTTPException(status_code=502, detail="Failed to acquire Microsoft Graph token")
+    if not service_token:
+        raise HTTPException(status_code=502, detail="Failed to acquire service token from GIA/OWUI")
+
+    # 2) Resolve current user with the service token
+    current_user = await get_current_user_email(client, JWT)
+    email = (current_user or {}).get("email")
+    if not email:
+        raise HTTPException(status_code=502, detail="Could not resolve current user email from GIA/OWUI")
+
+    # 3) Kick off PA workflow and VP token retrieval in parallel
+    pa_coro = call_pa_workflow_async({"CompanyEmailAddress": email}, graph_auth)
+    vp_token_coro = get_vantagepoint_token()
+    employee_details, vp_token_response = await asyncio.gather(pa_coro, vp_token_coro)
+
     if not employee_details:
-        raise HTTPException(
-            status_code=502, detail="Power Automate workflow returned no data"
-        )
-    logger.debug(f"This is the employee details: {employee_details}")
-    vp_token_response = await get_vantagepoint_token()
-    if not vp_token_response:
-        raise HTTPException(
-            status_code=502, detail="Vantagepoint API token retrieval failed"
-        )
-    logger.debug(f"[GET Vantagepoint API Token: {vp_token_response}]")
-    body = {
-        "EEID": employee_details.get("EmployeeID")
-    }
-    vacation_details = await get_vacation_days(body, vp_token_response.get("access_token"))
+        raise HTTPException(status_code=502, detail="Power Automate workflow returned no data")
+    if not vp_token_response or not vp_token_response.get("access_token"):
+        raise HTTPException(status_code=502, detail="Vantagepoint API token retrieval failed")
 
+    # 4) Vantagepoint PTO call
+    body = {"EEID": employee_details.get("EmployeeID")}
+    vacation_details = await get_vacation_days(body, vp_token_response.get("access_token"))
     if not vacation_details:
-        raise HTTPException(
-            status_code=502, detail="Vantagepoint Stored Procedure returned no data"
-        )
-    
+        raise HTTPException(status_code=502, detail="Vantagepoint Stored Procedure returned no data")
+
+    # 5) Helpful instructions + link to handbook-backed accrual explainer via /ask-file
     linked_call = AskReq(
         question=f"What is my PTO accrual rate for {employee_details.get('YearsWithGreshamSmith')} and {employee_details.get('CLL')}",
         model=req.model,
         stream=True
     )
-    
+
     return {
         "employee_id": vacation_details.get("employee_id"),
         "starting_balance": vacation_details.get("starting_balance"),
@@ -268,5 +285,5 @@ async def ask_vacation_details(req: AskReq = Body(...)):
             "The return values are in hours - show the results in hours and days. Our standard work day is 8 hours. "
             "If no vacation balance is found, refer the user to their HRP or manager - do not offer to refer to the servicedesk@greshamsmith.com."
             f"Refer to the \"/ask-file\" endpoint for a breakdown on accrual details for individual employees using a company tenure using: {linked_call} "
-            )
+        ),
     }

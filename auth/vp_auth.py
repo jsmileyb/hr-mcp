@@ -1,8 +1,10 @@
 # Vantagepoint Authentication Script
 import httpx
 from utils import config
+from utils.client_registry import client_registry
 from urllib.parse import urlencode
 import os
+from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,10 +16,17 @@ VP_DATABASE = os.environ.get("VP_DATABASE")
 VP_CLIENT_ID = os.environ.get("VP_CLIENT_ID")
 VP_CLIENT_SECRET = os.environ.get("VP_CLIENT_SECRET")
 
-async def get_vantagepoint_token():
+async def get_vantagepoint_token(client: Optional[httpx.AsyncClient] = None):
     """
     Authenticate with Vantagepoint API and return the access token response.
+    
+    Args:
+        client: Optional shared AsyncClient to use, otherwise gets one from registry
     """
+    # Use provided client or get one from registry
+    if client is None:
+        client = client_registry.get_client(VP_BASE_URL)
+    
     url = f"{VP_BASE_URL}/api/token"
     payload_dict = {
         "Username": VP_USERNAME,
@@ -32,10 +41,9 @@ async def get_vantagepoint_token():
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, headers=headers, data=payload)
-        response.raise_for_status()
-        return response.json()
+    response = await client.post(url, headers=headers, data=payload)
+    response.raise_for_status()
+    return response.json()
 
 if __name__ == "__main__":
     import asyncio

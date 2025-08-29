@@ -2,6 +2,8 @@
 import httpx
 import logging
 import os
+import time
+import asyncio
 from fastapi import HTTPException
 from dotenv import load_dotenv
 
@@ -9,17 +11,55 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-async def get_service_token(client: httpx.AsyncClient, jwt: str) -> str:
+# Token cache with TTL
+_TOKEN_CACHE = {
+    "token": None,
+    "expires_at": 0,
+    "lock": asyncio.Lock()
+}
+_TOKEN_TTL = 3600  # 1 hour default TTL
+
+
+async def get_cached_service_token(client: httpx.AsyncClient, jwt: str) -> str:
     """
-    Exchange the bootstrap JWT for a service/API token via /api/v1/auths/api_key.
-    Caches the token. Returns (token, token_type).
+    Get a cached service token, exchanging for a new one if needed.
+    This is the main function to use for getting service tokens.
+    """
+    async with _TOKEN_CACHE["lock"]:
+        now = time.time()
+        
+        # Check if we have a valid cached token
+        if (_TOKEN_CACHE["token"] and 
+            _TOKEN_CACHE["expires_at"] > now + 60):  # 60 second buffer
+            logger.debug("Using cached service token")
+            return _TOKEN_CACHE["token"]
+        
+        # Exchange for new token
+        logger.debug("Exchanging JWT for new service token")
+        token = await _exchange_service_token(client, jwt)
+        
+        # Cache the token
+        _TOKEN_CACHE["token"] = token
+        _TOKEN_CACHE["expires_at"] = now + _TOKEN_TTL
+        
+        return token
+
+
+async def _exchange_service_token(client: httpx.AsyncClient, jwt: str) -> str:
+    """
+    Internal function to exchange JWT for service token.
     """
     if client is None:
         raise RuntimeError("HTTP client not initialized")
 
-    # Your env expects GET here; Accept JSON; client already has Bearer <JWT>
     try:
-        r = await client.get("/api/v1/auths/api_key", headers={"Accept": "application/json", "Authorization": f"Bearer {jwt}"})
+        r = await client.get(
+            "/api/v1/auths/api_key", 
+            headers={
+                "Accept": "application/json", 
+                "Authorization": f"Bearer {jwt}"
+            }
+        )
         r.raise_for_status()
         payload = r.json()
     except httpx.HTTPError as e:
@@ -34,22 +74,82 @@ async def get_service_token(client: httpx.AsyncClient, jwt: str) -> str:
     if not key:
         raise HTTPException(status_code=502, detail="No 'api_key' in /api/v1/auths/ response")
 
-    logger.debug(f"Returned key is: {key}")
+    logger.debug("Successfully exchanged JWT for service token")
     return key
 
 
-async def get_current_user_email(client: httpx.AsyncClient, key: str) -> str:
+async def clear_token_cache():
     """
-    Fetch the authenticated user's email from OWUI /api/v1/auths/.
-    Uses service token if available, otherwise the bootstrap JWT.
+    Clear the cached token (useful when getting 401 errors).
+    """
+    async with _TOKEN_CACHE["lock"]:
+        _TOKEN_CACHE["token"] = None
+        _TOKEN_CACHE["expires_at"] = 0
+        logger.debug("Cleared service token cache")
+
+
+async def make_authenticated_request(
+    client: httpx.AsyncClient, 
+    jwt: str, 
+    method: str, 
+    endpoint: str, 
+    **kwargs
+) -> httpx.Response:
+    """
+    Make an authenticated request using cached service token.
+    Automatically retries once if 401 is received.
     """
     if client is None:
         raise RuntimeError("HTTP client not initialized")
-
-    # We can also refresh service token here; but GET works with JWT in many setups.
+    
+    # Get service token
+    token = await get_cached_service_token(client, jwt)
+    
+    # Add authorization header
+    headers = kwargs.get("headers", {})
+    headers["Authorization"] = f"Bearer {token}"
+    kwargs["headers"] = headers
+    
     try:
-        r = await client.get("/api/v1/auths/", headers={"Accept": "application/json", "Authorization": f"Bearer {key}"})
-        r.raise_for_status()
+        response = await client.request(method, endpoint, **kwargs)
+        response.raise_for_status()
+        return response
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            logger.warning("Received 401, clearing token cache and retrying")
+            await clear_token_cache()
+            
+            # Retry with fresh token
+            token = await get_cached_service_token(client, jwt)
+            headers["Authorization"] = f"Bearer {token}"
+            kwargs["headers"] = headers
+            
+            response = await client.request(method, endpoint, **kwargs)
+            response.raise_for_status()
+            return response
+        else:
+            raise
+
+
+# Legacy function for backward compatibility
+async def get_service_token(client: httpx.AsyncClient, jwt: str) -> str:
+    """
+    Legacy function for backward compatibility.
+    Use get_cached_service_token instead.
+    """
+    return await get_cached_service_token(client, jwt)
+
+
+async def get_current_user_email(client: httpx.AsyncClient, jwt: str) -> dict:
+    """
+    Fetch the authenticated user's email from OWUI /api/v1/auths/.
+    Uses cached service token.
+    """
+    try:
+        r = await make_authenticated_request(
+            client, jwt, "GET", "/api/v1/auths/",
+            headers={"Accept": "application/json"}
+        )
         payload = r.json()
     except httpx.HTTPError as e:
         logger.error("Failed to fetch /api/v1/auths/: %s", e)

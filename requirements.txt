@@ -1,15 +1,16 @@
+# Core
 fastapi
-uvicorn[standard]
+uvicorn
 pydantic
 httpx
+httpx[http2]
 xmltodict
-#requests
+asyncio
 
-# FOR TESTING
+# Speed-ups (Linux/macOS only)
+uvloop; platform_system != "Windows"
+httptools; platform_system != "Windows"
+
+# Dev/test
 pytest
 pytest-asyncio
-
-# UNUSED
-# mcp[cli]>=1.9.4
-# httpx
-

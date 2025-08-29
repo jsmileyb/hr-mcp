@@ -1,11 +1,17 @@
-# HTTP client utilities for interacting with external APIs
 import json
 import logging
-from typing import Dict, Any
+from typing import Dict
 import httpx
+import asyncio
 from fastapi import HTTPException
+import time
+
+from auth import get_cached_service_token, make_authenticated_request
 
 logger = logging.getLogger(__name__)
+_CACHE = {"models": set(), "ts": 0}
+_TTL = 300  # 5 minutes
+_LOCK = asyncio.Lock()
 
 
 async def ensure_model(client: httpx.AsyncClient, model_name: str, jwt: str, model_alias: Dict[str, str]) -> str:
@@ -21,88 +27,90 @@ async def ensure_model(client: httpx.AsyncClient, model_name: str, jwt: str, mod
     if client is None:
         raise RuntimeError("HTTP client not initialized")
 
-    desired = model_alias.get(model_name, model_name)
+    now = time.time()
+    async with _LOCK:
+        if not _CACHE["models"] or now - _CACHE["ts"] > _TTL:
+            # Fetch from /api/models once and cache
+            try:
+                r = await make_authenticated_request(
+                    client, jwt, "GET", "/api/models",
+                    headers={"Accept": "application/json"}
+                )
+                payload = r.json()
+            except httpx.HTTPError as e:
+                logger.error("Failed to fetch models from GIA: %s", e)
+                raise HTTPException(status_code=502, detail=f"GIA /api/models error: {e}")
+            except Exception as e:
+                logger.exception("Non-HTTP error parsing /api/models")
+                raise HTTPException(status_code=502, detail=f"Bad /api/models payload: {e}")
 
-    # Make sure we have the service token
-    from auth import get_service_token
-    await get_service_token(client, jwt)
+            models_set: set[str] = set()
 
-    desired = model_alias.get(model_name, model_name)
-    try:
-        r = await client.get("/api/models", headers={"Accept": "application/json", "Authorization": f"Bearer {jwt}"})
-        r.raise_for_status()
-        payload = r.json()
-    except httpx.HTTPError as e:
-        logger.error("Failed to fetch models from GIA: %s", e)
-        raise HTTPException(status_code=502, detail=f"GIA /api/models error: {e}")
-    except Exception as e:
-        logger.exception("Non-HTTP error parsing /api/models")
-        raise HTTPException(status_code=502, detail=f"Bad /api/models payload: {e}")
+            def add_from_list(items):
+                for item in items:
+                    if isinstance(item, str):
+                        models_set.add(item)
+                    elif isinstance(item, dict):
+                        for k in ("id", "name", "model", "slug"):
+                            v = item.get(k)
+                            if isinstance(v, str):
+                                models_set.add(v)
 
-    models_set: set[str] = set()
-
-    def add_from_list(items):
-        for item in items:
-            if isinstance(item, str):
-                models_set.add(item)
-            elif isinstance(item, dict):
-                for k in ("id", "name", "model", "slug"):
-                    v = item.get(k)
-                    if isinstance(v, str):
-                        models_set.add(v)
-
-    if isinstance(payload, list):
-        add_from_list(payload)
-    elif isinstance(payload, dict):
-        for key in ("models", "data", "items", "result"):
-            v = payload.get(key)
-            if isinstance(v, list):
-                add_from_list(v)
-        if not models_set:
-            # dict-of-dicts: {"gpt-5": {...}, "gpt-4o": {...}}
-            if payload and all(isinstance(v, (dict, str)) for v in payload.values()):
-                models_set.update(map(str, payload.keys()))
-        if not models_set:
-            for k in ("id", "name", "model", "slug"):
-                v = payload.get(k)
-                if isinstance(v, str):
-                    models_set.add(v)
-    elif isinstance(payload, str):
-        try:
-            inner = json.loads(payload)
-            if isinstance(inner, list):
-                add_from_list(inner)
-            elif isinstance(inner, dict):
+            if isinstance(payload, list):
+                add_from_list(payload)
+            elif isinstance(payload, dict):
                 for key in ("models", "data", "items", "result"):
-                    v = inner.get(key)
+                    v = payload.get(key)
                     if isinstance(v, list):
                         add_from_list(v)
-        except Exception:
-            models_set.add(payload)
+                if not models_set:
+                    if payload and all(isinstance(v, (dict, str)) for v in payload.values()):
+                        models_set.update(map(str, payload.keys()))
+                if not models_set:
+                    for k in ("id", "name", "model", "slug"):
+                        v = payload.get(k)
+                        if isinstance(v, str):
+                            models_set.add(v)
+            elif isinstance(payload, str):
+                try:
+                    inner = json.loads(payload)
+                    if isinstance(inner, list):
+                        add_from_list(inner)
+                    elif isinstance(inner, dict):
+                        for key in ("models", "data", "items", "result"):
+                            v = inner.get(key)
+                            if isinstance(v, list):
+                                add_from_list(v)
+                except Exception:
+                    models_set.add(payload)
 
-    if not models_set:
-        logger.error("Unexpected /api/models payload: %r", payload)
-        raise HTTPException(status_code=502, detail="Unexpected /api/models payload")
+            if not models_set:
+                logger.error("Unexpected /api/models payload: %r", payload)
+                raise HTTPException(status_code=502, detail="Unexpected /api/models payload")
 
-    if desired in models_set:
+            _CACHE["models"] = models_set
+            _CACHE["ts"] = now
+
+    desired = model_alias.get(model_name, model_name)
+    if desired in _CACHE["models"]:
         return desired
 
     logger.warning(
         "Requested model '%s' not registered. Available: %s",
         desired,
-        sorted(models_set),
+        sorted(_CACHE["models"]),
     )
     raise HTTPException(
         status_code=400,
         detail={
             "error": f"Model '{model_name}' is not registered in GIA",
             "alias_applied": desired if desired != model_name else None,
-            "available_models": sorted(models_set),
+            "available_models": sorted(_CACHE["models"]),
         },
     )
 
 
-async def post_chat_completions(client: httpx.AsyncClient, payload: dict) -> dict:
+async def post_chat_completions(client: httpx.AsyncClient, payload: dict, jwt: str) -> dict:
     """
     Call OWUI /api/chat/completions and be tolerant:
     - JSON response
@@ -113,14 +121,14 @@ async def post_chat_completions(client: httpx.AsyncClient, payload: dict) -> dic
     """
     if client is None:
         raise RuntimeError("HTTP client not initialized")
+    
     try:
-        # Ask politely for JSON
-        r = await client.post(
-            "/api/chat/completions",
+        # Use authenticated request with service token
+        r = await make_authenticated_request(
+            client, jwt, "POST", "/api/chat/completions",
             json=payload,
-            headers={"Accept": "application/json"},
+            headers={"Accept": "application/json"}
         )
-        r.raise_for_status()
     except httpx.HTTPStatusError as e:
         logger.error(
             "OWUI /api/chat/completions %s: %s", e.response.status_code, e.response.text

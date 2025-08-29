@@ -49,3 +49,6 @@ EXPOSE 5001
 
 # Run the application.
 CMD uvicorn 'main:app' --host=0.0.0.0 --port=5001
+
+# FASTER EVENT LOOP AND PARSER -- LINUX ONLY!!!
+# uvicorn "main:app" --host 0.0.0.0 --port 5001 --workers 2 --loop uvloop --http httptools

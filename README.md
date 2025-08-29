@@ -24,6 +24,12 @@ OpenAPI docs are available at `/docs` and `/redoc` when running locally.
 - Access to Power Automate (Flow) endpoint used by your tenant
 - Access to Vantagepoint and credentials to obtain an API token
 
+## Enhancements
+
+- Replace all "prints" with "logging"
+- Remove verbose/unnecessary "logging"
+- **Optimized HTTP client usage** - Shared clients per host eliminate redundant TLS handshakes and improve performance
+
 ## Project Structure
 
 - `main.py` — FastAPI app and endpoints
