@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from utils.config import TOOL_NAME
 from utils.environment import (
+    get_environment_config, 
     log_environment_config, 
     validate_required_env,
     get_owui_url,
@@ -63,19 +64,18 @@ logger = logging.getLogger(TOOL_NAME)
 OWUI = get_owui_url()
 JWT = get_owui_jwt()
 HARDCODED_FILE_ID = get_hardcoded_file_id()
-
-# Optional: map your requested model name to an OWUI-registered model id.
-# Example: MODEL_ALIAS_JSON='{"gpt-5":"gpt-5o"}'
-MODEL_ALIAS = {"gpt-5": "gpt-5"}  # or "gpt-5o" if that's the registered ID
-
-# Shared async client (init on startup)
-client: httpx.AsyncClient | None = None
-
 # Log environment configuration
 log_environment_config(logger)
 
 # Validate required environment variables
 validate_required_env()
+
+# Optional: map your requested model name to an OWUI-registered model id.
+# Example: MODEL_ALIAS_JSON='{"gpt-5":"gpt-5o"}'
+MODEL_ALIAS = {"gpt-5": "gpt-5"}  # or "gpt-5o" if that’s the registered ID
+
+# Shared async client (init on startup)
+client: httpx.AsyncClient | None = None
 
 
 @app.on_event("startup")
@@ -98,9 +98,68 @@ async def _shutdown():
 
 
 # =========================
+# Pydantic models
+# =========================
+class AskReq(BaseModel):
+    question: str = Field(..., description="User question")
+    model: str = Field(
+        "gpt-5", description="Model id as registered in GIA (/api/models)"
+    )
+    stream: bool = Field(True, description="Use streamed responses (server-side)")
+
+
+class AskResp(BaseModel):
+    normalized_text: Optional[str] = None
+    sources: Optional[list] = None
+    instructions: Optional[str] = None
+
+
+class LeadershipInfo(BaseModel):
+    hrp_employee_id: Optional[str] = None
+    hrp_name: Optional[str] = None
+    hrp_email: Optional[str] = None
+    director_id: Optional[str] = None
+    director_name: Optional[str] = None
+    director_email: Optional[str] = None
+    mvp_id: Optional[str] = None
+    mvp_name: Optional[str] = None
+    mvp_email: Optional[str] = None
+    evp_id: Optional[str] = None
+    evp_name: Optional[str] = None
+    evp_email: Optional[str] = None
+
+
+class EmploymentSummary(BaseModel):
+    employee_id: Optional[str] = None
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    cll: Optional[str] = None
+    market: Optional[str] = None
+    department: Optional[str] = None
+    nomination_level: Optional[str] = None
+    nomination_date: Optional[str] = None
+    latest_hire_date: Optional[str] = None
+    original_hire_date: Optional[str] = None
+    years_with_gresham_smith: Optional[float] = None
+    los_years: Optional[float] = None
+
+
+class EmploymentResp(BaseModel):
+    # What we’ll send back from /get-my-leadership (aka ask_employment_details)
+    leadership: LeadershipInfo
+    summary: EmploymentSummary
+
+
+class VacationResp(BaseModel):
+    employee_id: Optional[str] = None
+    starting_balance: Optional[float] = None
+    current_balance: Optional[float] = None
+    instructions: Optional[str] = None
+
+# =========================
 # Routes
 # =========================
-@app.post("/ask-file", response_model=AskResp, summary="Ask HR policy questions using the Employee Handbook")
+@app.post("/ask-file",response_model=AskResp,summary="Ask HR policy questions using the Employee Handbook")
 async def ask_file(req: AskReq = Body(...)):
     """
     Handbook-based HR questions. Use this when the user asks about PTO policy, benefits, time-off rules, or other HR procedures documented in the employee handbook.
@@ -128,6 +187,7 @@ async def ask_file(req: AskReq = Body(...)):
         q_preview,
     )
 
+    key = await get_service_token(client, JWT)
     model_id = await ensure_model(client, req.model, JWT, MODEL_ALIAS)
     logger.debug("ask_file[%s] resolved_model=%s", rid, model_id)
 
@@ -181,7 +241,7 @@ async def ask_file(req: AskReq = Body(...)):
     }
 
 
-@app.post("/get-my-leadership", response_model=EmploymentResp, summary="Get my leadership & employment details")
+@app.post("/get-my-leadership",response_model=EmploymentResp,summary="Get my leadership & employment details")
 async def ask_employment_details(req: AskReq = Body(...)):
     """
     Employee-specific leadership details. Use this when the user asks *who* their HRP, Director, MVP/EVP, or CLL is, or requests personal employment details like hire date, employee ID, nomination level/date, or length of service.
@@ -195,6 +255,7 @@ async def ask_employment_details(req: AskReq = Body(...)):
     """
     rid = uuid.uuid4().hex[:8]
     logger.debug("ask_employment_details[%s] model=%s", rid, req.model)
+    logger.debug(f"{'~' * 25}This is the request: {req}")
 
     # 1) Get token (if your Flow requires it)
     graph_auth = await get_graph_token_async()
@@ -212,7 +273,6 @@ async def ask_employment_details(req: AskReq = Body(...)):
     # 3) Build structured, market-aware response
     payload = build_employment_payload(employee_details)
     return payload
-
 
 @app.post("/get-my-vacation", response_model=VacationResp, summary="Get my vacation details")
 async def ask_vacation_details(req: AskReq = Body(...)):
@@ -270,3 +330,4 @@ async def ask_vacation_details(req: AskReq = Body(...)):
             f"Refer to the \"/ask-file\" endpoint for a breakdown on accrual details for individual employees using a company tenure using: {linked_call} "
             )
     }
+

@@ -1,0 +1,17 @@
+# Pydantic models for API requests and responses
+from typing import Optional, List
+from pydantic import BaseModel, Field
+
+
+class AskReq(BaseModel):
+    question: str = Field(..., description="User question")
+    model: str = Field(
+        "gpt-5", description="Model id as registered in GIA (/api/models)"
+    )
+    stream: bool = Field(True, description="Use streamed responses (server-side)")
+
+
+class AskResp(BaseModel):
+    normalized_text: Optional[str] = None
+    sources: Optional[list] = None
+    instructions: Optional[str] = None

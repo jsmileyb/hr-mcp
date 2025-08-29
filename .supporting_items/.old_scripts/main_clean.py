@@ -128,6 +128,7 @@ async def ask_file(req: AskReq = Body(...)):
         q_preview,
     )
 
+    key = await get_service_token(client, JWT)
     model_id = await ensure_model(client, req.model, JWT, MODEL_ALIAS)
     logger.debug("ask_file[%s] resolved_model=%s", rid, model_id)
 
@@ -195,6 +196,7 @@ async def ask_employment_details(req: AskReq = Body(...)):
     """
     rid = uuid.uuid4().hex[:8]
     logger.debug("ask_employment_details[%s] model=%s", rid, req.model)
+    logger.debug(f"{'~' * 25}This is the request: {req}")
 
     # 1) Get token (if your Flow requires it)
     graph_auth = await get_graph_token_async()
