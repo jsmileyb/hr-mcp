@@ -1,9 +1,10 @@
 import json
 import logging
-from typing import Dict
+from typing import Dict, AsyncGenerator
 import httpx
 import asyncio
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
 import time
 
 from auth import get_cached_service_token, make_authenticated_request
@@ -211,3 +212,145 @@ async def post_chat_completions(client: httpx.AsyncClient, payload: dict, jwt: s
     raise HTTPException(
         status_code=502, detail="Empty response from /api/chat/completions"
     )
+
+
+async def post_chat_completions_stream(client: httpx.AsyncClient, payload: dict, jwt: str) -> AsyncGenerator[str, None]:
+    """
+    Stream /api/chat/completions response directly to the client.
+    
+    This function handles:
+    - Server-Sent Events (SSE) streaming
+    - NDJSON streaming  
+    - Regular JSON responses (converted to single chunk)
+    - Source extraction from first chunk
+    
+    Yields: SSE-formatted strings ready for client consumption
+    """
+    if client is None:
+        raise RuntimeError("HTTP client not initialized")
+    
+    try:
+        # Force streaming in the payload
+        payload = {**payload, "stream": True}
+        
+        # Use authenticated request with service token
+        async with client.stream(
+            "POST", 
+            "/api/chat/completions",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {await get_cached_service_token(client, jwt)}",
+                "Accept": "text/event-stream, application/json",
+                "Cache-Control": "no-cache"
+            }
+        ) as response:
+            if response.status_code != 200:
+                error_text = await response.aread()
+                logger.error("OWUI streaming error %s: %s", response.status_code, error_text.decode())
+                raise HTTPException(status_code=response.status_code, detail=error_text.decode())
+            
+            ctype = (response.headers.get("content-type") or "").lower()
+            logger.debug("Streaming response content-type: %s", ctype)
+            
+            sources_sent = False
+            
+            # Handle SSE streaming
+            if "text/event-stream" in ctype or "stream" in ctype:
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+                        
+                    if line.startswith("data: "):
+                        data_part = line[6:].strip()
+                        
+                        if data_part == "[DONE]":
+                            yield "data: [DONE]\n\n"
+                            break
+                            
+                        try:
+                            chunk_data = json.loads(data_part)
+                            
+                            # Extract sources from first chunk if present
+                            if not sources_sent and "sources" in chunk_data:
+                                sources_event = {
+                                    "type": "sources",
+                                    "sources": chunk_data["sources"]
+                                }
+                                yield f"data: {json.dumps(sources_event)}\n\n"
+                                sources_sent = True
+                            
+                            # Forward the chunk as-is
+                            yield f"data: {data_part}\n\n"
+                            
+                        except json.JSONDecodeError:
+                            # Forward non-JSON lines as-is (might be control messages)
+                            yield f"data: {data_part}\n\n"
+                    else:
+                        # Forward other SSE lines (like event:, id:, etc.)
+                        yield f"{line}\n"
+                        
+            # Handle NDJSON streaming
+            elif "ndjson" in ctype:
+                async for line in response.aiter_lines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                        
+                    try:
+                        chunk_data = json.loads(line)
+                        
+                        # Extract sources from first chunk if present
+                        if not sources_sent and "sources" in chunk_data:
+                            sources_event = {
+                                "type": "sources", 
+                                "sources": chunk_data["sources"]
+                            }
+                            yield f"data: {json.dumps(sources_event)}\n\n"
+                            sources_sent = True
+                        
+                        # Convert NDJSON to SSE format
+                        yield f"data: {line}\n\n"
+                        
+                    except json.JSONDecodeError:
+                        logger.debug("Non-JSON NDJSON line: %r", line[:200])
+                        
+            # Handle regular JSON response (convert to single chunk)
+            else:
+                content = await response.aread()
+                try:
+                    data = json.loads(content.decode())
+                    
+                    # Extract sources if present
+                    if "sources" in data:
+                        sources_event = {
+                            "type": "sources",
+                            "sources": data["sources"] 
+                        }
+                        yield f"data: {json.dumps(sources_event)}\n\n"
+                    
+                    # Send content as single chunk
+                    yield f"data: {json.dumps(data)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    
+                except json.JSONDecodeError:
+                    # Handle non-JSON response
+                    text_chunk = {
+                        "choices": [{
+                            "delta": {
+                                "content": content.decode()
+                            }
+                        }]
+                    }
+                    yield f"data: {json.dumps(text_chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    
+    except httpx.HTTPError as e:
+        logger.error("HTTP error in streaming: %s", e)
+        error_chunk = {
+            "error": {
+                "message": str(e),
+                "type": "http_error"
+            }
+        }
+        yield f"data: {json.dumps(error_chunk)}\n\n"
+        yield "data: [DONE]\n\n"

@@ -6,6 +6,7 @@ import asyncio
 
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 
 from utils.config import TOOL_NAME
@@ -20,7 +21,7 @@ from utils.environment import (
 from utils.api_models import AskReq, AskResp
 from utils.employment_data import EmploymentResp, build_employment_payload
 from utils.vacation_data import VacationResp
-from utils.http_client import ensure_model, post_chat_completions
+from utils.http_client import ensure_model, post_chat_completions, post_chat_completions_stream
 from utils.response_processor import normalize_owui_response
 from utils.client_registry import client_registry
 from auth import (
@@ -88,7 +89,7 @@ async def _startup():
         headers={"Accept": "application/json"},
         timeout=httpx.Timeout(connect=5, read=30, write=30, pool=30),
         limits=httpx.Limits(max_keepalive_connections=32, max_connections=128),
-        http2=True,  # <-- big win when OWUI supports it
+        http2=True, 
     )
     
     # Register the main GIA client in the registry
@@ -112,7 +113,7 @@ async def _shutdown():
 # =========================
 # Routes
 # =========================
-@app.post("/ask-file", response_model=AskResp, summary="Ask HR policy questions using the Employee Handbook")
+@app.post("/ask-file", summary="Ask HR policy questions using the Employee Handbook")
 async def ask_file(req: AskReq = Body(...)):
     """
     Handbook-based HR questions. Use this when the user asks about PTO policy, benefits, time-off rules, or other HR procedures documented in the employee handbook.
@@ -120,7 +121,8 @@ async def ask_file(req: AskReq = Body(...)):
     Ask HR policy questions against the Employee Handbook via GIA, with optional OpenAI post-processing.
 
     Returns: 
-        A structured response containing the answer to the HR policy question, along with relevant sources from the Employee Handbook.
+        - If stream=True: Server-Sent Events (SSE) streaming response
+        - If stream=False: Structured JSON response containing the answer with sources
 
     Raises: 
         HTTPException if the request fails or if no relevant information is found.
@@ -158,39 +160,72 @@ async def ask_file(req: AskReq = Body(...)):
         f"~~~ payload: {payload} ~~~",
     )
 
-    owui_resp = await post_chat_completions(client, payload, JWT)
-    logger.debug(f"~~~ owui_resp: {owui_resp} ~~~")
-    logger.debug(
-        "ask_file[%s] received OWUI response keys=%s",
-        rid,
-        (
-            list(owui_resp.keys())
-            if isinstance(owui_resp, dict)
-            else type(owui_resp).__name__
-        ),
-    )
+    # Handle streaming vs non-streaming responses
+    if req.stream:
+        logger.debug("ask_file[%s] returning streaming response", rid)
+        
+        async def generate_stream():
+            """Generate SSE stream with initial metadata and response chunks"""
+            # Send initial metadata
+            metadata = {
+                "type": "metadata",
+                "request_id": rid,
+                "instructions": (
+                    "Your response requires source mapping to the Employee Handbook and must include the page number(s) where the information was found. "
+                    "Use the sources provided to map page numbers to show employees where to find the information. The link to the handbook is: https://gspnet4.sharepoint.com/sites/HR/Shared%20Documents/employee-handbook.pdf. "
+                    "DO NOT make up content - if you cannot find an answer, state that you cannot find the answer and refer the user to the Employee Handbook, their HRP, or contact hr@greshamsmith.com."
+                )
+            }
+            yield f"data: {json.dumps(metadata)}\n\n"
+            
+            # Stream the actual response
+            async for chunk in post_chat_completions_stream(client, payload, JWT):
+                yield chunk
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
+    else:
+        # Non-streaming response (existing behavior)
+        owui_resp = await post_chat_completions(client, payload, JWT)
+        logger.debug(f"~~~ owui_resp: {owui_resp} ~~~")
+        logger.debug(
+            "ask_file[%s] received OWUI response keys=%s",
+            rid,
+            (
+                list(owui_resp.keys())
+                if isinstance(owui_resp, dict)
+                else type(owui_resp).__name__
+            ),
+        )
 
-    # Normalize OWUI output
-    normalized_text, sources = normalize_owui_response(owui_resp)
-    logger.debug(
-        "ask_file[%s] normalized len=%d sources=%d",
-        rid,
-        len(normalized_text or ""),
-        len(sources or []),
-    )
+        # Normalize OWUI output
+        normalized_text, sources = normalize_owui_response(owui_resp)
+        logger.debug(
+            "ask_file[%s] normalized len=%d sources=%d",
+            rid,
+            len(normalized_text or ""),
+            len(sources or []),
+        )
 
-    logger.debug("ask_file[%s] done", rid)
-    logger.debug(f"This is the normalized_text: {normalized_text}")
+        logger.debug("ask_file[%s] done", rid)
+        logger.debug(f"This is the normalized_text: {normalized_text}")
 
-    return {
-        "normalized_text": normalized_text,
-        "sources": sources,
-        "instructions": (
-            "Your response requires source mapping to the Employee Handbook and must include the page number(s) where the information was found. "
-            f"Use {sources} to map page numbers to show employees where to find the information the link to the handbook is: https://gspnet4.sharepoint.com/sites/HR/Shared%20Documents/employee-handbook.pdf. "
-            "DO NOT make up content - if you cannot find an answer, state the you cannot find the answer and refer the user to the Employee Handbook, their HRP, or contact hr@greshamsmith.com. "
-        ),
-    }
+        return {
+            "normalized_text": normalized_text,
+            "sources": sources,
+            "instructions": (
+                "Your response requires source mapping to the Employee Handbook and must include the page number(s) where the information was found. "
+                f"Use {sources} to map page numbers to show employees where to find the information the link to the handbook is: https://gspnet4.sharepoint.com/sites/HR/Shared%20Documents/employee-handbook.pdf. "
+                "DO NOT make up content - if you cannot find an answer, state the you cannot find the answer and refer the user to the Employee Handbook, their HRP, or contact hr@greshamsmith.com. "
+            ),
+        }
 
 
 @app.post("/get-my-leadership", response_model=EmploymentResp, summary="Get my leadership & employment details")

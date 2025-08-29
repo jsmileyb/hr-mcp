@@ -21,6 +21,7 @@ This caused unnecessary latency due to repeated TLS handshakes and connection se
 ### 1. Client Registry (`utils/client_registry.py`)
 
 Created a centralized client registry that:
+
 - Maintains one shared `AsyncClient` per host
 - Automatically creates clients with sensible defaults
 - Provides cleanup functionality
@@ -31,29 +32,33 @@ Created a centralized client registry that:
 Modified all auth modules to accept an optional `client` parameter:
 
 **`auth/graph_auth.py`:**
+
 ```python
 async def get_graph_token_async(client: Optional[httpx.AsyncClient] = None) -> Optional[str]:
 ```
 
 **`auth/power_automate_auth.py`:**
+
 ```python
 async def call_pa_workflow_async(
-    payload: Dict[str, Any], 
-    token: Optional[str], 
+    payload: Dict[str, Any],
+    token: Optional[str],
     client: Optional[httpx.AsyncClient] = None
 ) -> Optional[Dict[str, Any]]:
 ```
 
 **`auth/vp_auth.py`:**
+
 ```python
 async def get_vantagepoint_token(client: Optional[httpx.AsyncClient] = None):
 ```
 
 **`utils/vantagepoint.py`:**
+
 ```python
 async def get_vacation_days(
-    payload: Dict[str, Any], 
-    token: Optional[str], 
+    payload: Dict[str, Any],
+    token: Optional[str],
     client: Optional[httpx.AsyncClient] = None
 ) -> Optional[Dict[str, Any]]:
 ```
@@ -61,6 +66,7 @@ async def get_vacation_days(
 ### 3. Main Application Integration
 
 Updated `main.py` to:
+
 - Import and use the client registry
 - Register the main GIA client with the registry
 - Close all shared clients on shutdown
@@ -68,13 +74,15 @@ Updated `main.py` to:
 ## Client Usage Pattern
 
 ### Before (Multiple Clients)
+
 ```
 Module A: create client -> TLS handshake -> API call -> close client
-Module B: create client -> TLS handshake -> API call -> close client  
+Module B: create client -> TLS handshake -> API call -> close client
 Module C: create client -> TLS handshake -> API call -> close client
 ```
 
 ### After (Shared Clients)
+
 ```
 Startup: create clients per host -> TLS handshakes
 Module A: use shared client -> API call
@@ -94,6 +102,7 @@ Shutdown: close all shared clients
 ## Default Client Configuration
 
 Shared clients are created with optimized settings:
+
 - **Timeout**: 10s connect, 60s read, 30s write, 30s pool
 - **Limits**: 16 keep-alive connections, 64 max connections per host
 - **HTTP/2**: Enabled for performance
@@ -102,6 +111,7 @@ Shared clients are created with optimized settings:
 ## Testing
 
 Created comprehensive test suite (`test_scripts/test_client_registry.py`) that verifies:
+
 - Client sharing works correctly
 - Different hosts get different clients
 - Function signatures accept client parameters
@@ -110,11 +120,13 @@ Created comprehensive test suite (`test_scripts/test_client_registry.py`) that v
 ## Migration Notes
 
 **No Breaking Changes:**
+
 - All existing function calls work unchanged due to default parameters
 - Environment variables unchanged
 - API contracts maintained
 
 **Performance Impact:**
+
 - First request per host: Same performance (client creation + TLS handshake)
 - Subsequent requests: 100-500ms faster per request
 - Under load: Significantly reduced connection overhead
