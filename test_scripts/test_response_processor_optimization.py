@@ -12,8 +12,7 @@ from typing import Any, Dict, List
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.response_processor import (
-    normalize_owui_response, 
-    normalize_owui_response_streaming,
+    normalize_owui_response,
     get_sources_from_owui
 )
 
@@ -142,48 +141,6 @@ def test_get_sources_utility():
     print("✓ Sources utility test passed")
 
 
-async def test_streaming_variant():
-    """Test the new streaming variant function"""
-    print("\nTesting streaming variant...")
-    
-    # Create a mock async iterator
-    class MockAsyncIterator:
-        def __init__(self, items):
-            self.items = items
-            self.index = 0
-        
-        def __aiter__(self):
-            return self
-        
-        async def __anext__(self):
-            if self.index >= len(self.items):
-                raise StopAsyncIteration
-            item = self.items[self.index]
-            self.index += 1
-            return self.index - 1, item  # Return index and item
-    
-    mock_stream = MockAsyncIterator([
-        {"sources": [{"page": 10, "text": "Stream source"}]},
-        {"choices": [{"delta": {"content": "Streaming "}}]},
-        {"choices": [{"delta": {"content": "content"}}]},
-        "[DONE]"
-    ])
-    
-    chunks = []
-    sources_received = None
-    
-    async for text_chunk, sources in normalize_owui_response_streaming(mock_stream):
-        chunks.append(text_chunk)
-        if sources and not sources_received:
-            sources_received = sources
-    
-    combined_text = "".join(chunks)
-    print(f"Streaming result: '{combined_text}'")
-    print(f"Streaming sources: {sources_received}")
-    
-    assert "Streaming content" in combined_text or combined_text == "", "Should contain streaming content or be empty for sources-only chunk"
-    assert sources_received is not None, "Should receive sources"
-    print("✓ Streaming variant test passed")
 
 
 def test_performance_comparison():
@@ -238,7 +195,6 @@ async def main():
     test_normalize_with_finish_reason()
     test_ndjson_with_done()
     test_get_sources_utility()
-    await test_streaming_variant()
     test_performance_comparison()
     
     print("\n🎉 All tests passed! The response processor optimization is working correctly.")

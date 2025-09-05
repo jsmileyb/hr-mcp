@@ -1,28 +1,25 @@
-from typing import Optional
-import os, json, logging, sys, uuid
+import logging, sys, uuid
 
 import httpx
 import asyncio
 
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+## StreamingResponse removed (streaming feature deprecated)
 from dotenv import load_dotenv
 
-from utils.config import TOOL_NAME
 from utils.environment import (
     log_environment_config, 
     validate_required_env,
+    get_tool_name,
     get_owui_url,
     get_owui_jwt,
     get_hardcoded_file_id,
     get_debug_mode
 )
-from utils.api_models import AskReq, AskResp
+from utils.api_models import AskReq
 from utils.employment_data import EmploymentResp, build_employment_payload
 from utils.vacation_data import VacationResp
-from utils.http_client import ensure_model, post_chat_completions, post_chat_completions_stream
-from utils.response_processor import normalize_owui_response
 from utils.client_registry import client_registry
 from auth import (
     get_cached_service_token,
@@ -58,7 +55,19 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     stream=sys.stdout,
 )
-logger = logging.getLogger(TOOL_NAME)
+logger = logging.getLogger(get_tool_name())
+
+def _ensure_logger():
+    """Guarantee logger has a handler and correct level (uvicorn may override)."""
+    desired_level = logging.DEBUG if get_debug_mode() else logging.INFO
+    logger.setLevel(desired_level)
+    if not logger.handlers:
+        h = logging.StreamHandler(sys.stdout)
+        h.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+        logger.addHandler(h)
+    logger.propagate = False  # avoid duplicate root emission
+
+_ensure_logger()
 
 # =========================
 # Config / HTTP client
@@ -66,10 +75,6 @@ logger = logging.getLogger(TOOL_NAME)
 OWUI = get_owui_url()
 JWT = get_owui_jwt()
 HARDCODED_FILE_ID = get_hardcoded_file_id()
-
-# Optional: map your requested model name to an OWUI-registered model id.
-# Example: MODEL_ALIAS_JSON='{"gpt-5":"gpt-5o"}'
-MODEL_ALIAS = {"gpt-5": "gpt-5"}  # or "gpt-5o" if that's the registered ID
 
 # Shared async client (init on startup)
 client: httpx.AsyncClient | None = None
@@ -87,7 +92,7 @@ async def _startup():
     client = httpx.AsyncClient(
         base_url=OWUI,
         headers={"Accept": "application/json"},
-        timeout=httpx.Timeout(connect=5, read=30, write=30, pool=30),
+        timeout=httpx.Timeout(connect=10, read=60, write=60, pool=60),
         limits=httpx.Limits(max_keepalive_connections=32, max_connections=128),
         http2=True, 
     )
@@ -113,125 +118,11 @@ async def _shutdown():
 # =========================
 # Routes
 # =========================
-@app.post("/ask-file", summary="Ask HR policy questions using the Employee Handbook")
-async def ask_file(req: AskReq = Body(...)):
-    """
-    Handbook-based HR questions. Use this when the user asks about PTO policy, benefits, time-off rules, or other HR procedures documented in the employee handbook.
-    
-    Ask HR policy questions against the Employee Handbook via GIA, with optional OpenAI post-processing.
-
-    Returns: 
-        - If stream=True: Server-Sent Events (SSE) streaming response
-        - If stream=False: Structured JSON response containing the answer with sources
-
-    Raises: 
-        HTTPException if the request fails or if no relevant information is found.
-
-    """
-    rid = uuid.uuid4().hex[:8]
-
-    q_preview = (req.question or "").replace("\n", " ")
-    if len(q_preview) > 160:
-        q_preview = q_preview[:160] + "…"
-
-    logger.debug(
-        "ask_file[%s] incoming model=%s stream=%s q_preview=%r",
-        rid,
-        req.model,
-        bool(req.stream),
-        q_preview,
-    )
-
-    model_id = await ensure_model(client, req.model, JWT, MODEL_ALIAS)
-    logger.debug("ask_file[%s] resolved_model=%s", rid, model_id)
-
-    if not HARDCODED_FILE_ID and get_debug_mode():
-        logger.warning(
-            "ask_file[%s] HARDCODED_FILE_ID is not set; request may fail", rid
-        )
-
-    payload = {
-        "model": model_id,
-        "stream": bool(req.stream),
-        "messages": [{"role": "user", "content": req.question}],
-        "files": [{"id": HARDCODED_FILE_ID, "type": "file", "status": "processed"}],
-    }
-    logger.debug(
-        f"~~~ payload: {payload} ~~~",
-    )
-
-    # Handle streaming vs non-streaming responses
-    if req.stream:
-        logger.debug("ask_file[%s] returning streaming response", rid)
-        
-        async def generate_stream():
-            """Generate SSE stream with initial metadata and response chunks"""
-            # Send initial metadata
-            metadata = {
-                "type": "metadata",
-                "request_id": rid,
-                "instructions": (
-                    "Your response requires source mapping to the Employee Handbook and must include the page number(s) where the information was found. "
-                    "Use the sources provided to map page numbers to show employees where to find the information. The link to the handbook is: https://gspnet4.sharepoint.com/sites/HR/Shared%20Documents/employee-handbook.pdf. "
-                    "DO NOT make up content - if you cannot find an answer, state that you cannot find the answer and refer the user to the Employee Handbook, their HRP, or contact hr@greshamsmith.com."
-                )
-            }
-            yield f"data: {json.dumps(metadata)}\n\n"
-            
-            # Stream the actual response
-            async for chunk in post_chat_completions_stream(client, payload, JWT):
-                yield chunk
-        
-        return StreamingResponse(
-            generate_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"  # Disable nginx buffering
-            }
-        )
-    else:
-        # Non-streaming response (existing behavior)
-        owui_resp = await post_chat_completions(client, payload, JWT)
-        logger.debug(f"~~~ owui_resp: {owui_resp} ~~~")
-        logger.debug(
-            "ask_file[%s] received OWUI response keys=%s",
-            rid,
-            (
-                list(owui_resp.keys())
-                if isinstance(owui_resp, dict)
-                else type(owui_resp).__name__
-            ),
-        )
-
-        # Normalize OWUI output
-        normalized_text, sources = normalize_owui_response(owui_resp)
-        logger.debug(
-            "ask_file[%s] normalized len=%d sources=%d",
-            rid,
-            len(normalized_text or ""),
-            len(sources or []),
-        )
-
-        logger.debug("ask_file[%s] done", rid)
-        logger.debug(f"This is the normalized_text: {normalized_text}")
-
-        return {
-            "normalized_text": normalized_text,
-            "sources": sources,
-            "instructions": (
-                "Your response requires source mapping to the Employee Handbook and must include the page number(s) where the information was found. "
-                f"Use {sources} to map page numbers to show employees where to find the information the link to the handbook is: https://gspnet4.sharepoint.com/sites/HR/Shared%20Documents/employee-handbook.pdf. "
-                "DO NOT make up content - if you cannot find an answer, state the you cannot find the answer and refer the user to the Employee Handbook, their HRP, or contact hr@greshamsmith.com. "
-            ),
-        }
-
-
 @app.post("/get-my-leadership", response_model=EmploymentResp, summary="Get my leadership & employment details")
 async def ask_employment_details(req: AskReq = Body(...)):
     """
     Employee-specific leadership details. Use this when the user asks *who* their HRP, Director, MVP/EVP, or CLL is, or requests personal employment details like hire date, employee ID, nomination level/date, or length of service.
+    CLL value is required when asking about PTO/vacation accrual rates (PTO Benefit Accrual).
 
     Returns: 
         A structured response containing the employee's leadership details and relevant employment information.
@@ -265,6 +156,7 @@ async def ask_employment_details(req: AskReq = Body(...)):
 async def ask_vacation_details(req: AskReq = Body(...)):
     """
     Employee-specific vacation details. Use this when the user asks about their vacation balance, upcoming time off, or related inquiries.
+    CLL value is required when asking about specific PTO/vacation accrual rates (PTO Benefit Accrual).
     
     Returns: 
         A structured response containing the employee's vacation details and relevant information.
@@ -305,13 +197,6 @@ async def ask_vacation_details(req: AskReq = Body(...)):
     if not vacation_details:
         raise HTTPException(status_code=502, detail="Vantagepoint Stored Procedure returned no data")
 
-    # 5) Helpful instructions + link to handbook-backed accrual explainer via /ask-file
-    linked_call = AskReq(
-        question=f"What is my PTO accrual rate for {employee_details.get('YearsWithGreshamSmith')} and {employee_details.get('CLL')}",
-        model=req.model,
-        stream=True
-    )
-
     return {
         "employee_id": vacation_details.get("employee_id"),
         "starting_balance": vacation_details.get("starting_balance"),
@@ -319,6 +204,6 @@ async def ask_vacation_details(req: AskReq = Body(...)):
         "instructions": (
             "The return values are in hours - show the results in hours and days. Our standard work day is 8 hours. "
             "If no vacation balance is found, refer the user to their HRP or manager - do not offer to refer to the servicedesk@greshamsmith.com."
-            f"Refer to the \"/ask-file\" endpoint for a breakdown on accrual details for individual employees using a company tenure using: {linked_call} "
+            f"Refer to the \"employee-handbook.md\" file for a breakdown on accrual details for individual employees using a company tenure. "
         ),
     }

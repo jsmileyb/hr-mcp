@@ -59,7 +59,6 @@ async def test_chat_completions():
             # Test chat completions
             payload = {
                 "model": model_id,
-                "stream": True,
                 "messages": [{"role": "user", "content": "What is the PTO policy?"}],
                 "files": [{"id": file_id, "type": "file", "status": "processed"}],
             }

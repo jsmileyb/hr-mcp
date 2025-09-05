@@ -52,6 +52,9 @@ def validate_required_env() -> None:
 
 
 # Environment variable getters
+def get_tool_name() -> str:
+    return os.environ.get("TOOL_NAME", "GIA:HR POLICY")
+
 def get_owui_url() -> str:
     return os.environ.get("GIA_URL", "http://localhost:8080")
 
@@ -64,6 +67,10 @@ def get_hardcoded_file_id() -> str:
     return os.environ.get("HARDCODED_FILE_ID", "")
 
 
+def get_openai_model() -> str:
+    return os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+
 def get_openai_api_key() -> str:
     return os.environ.get("OPENAI_API_KEY", "")
 
@@ -73,7 +80,7 @@ def get_openai_model() -> str:
 
 
 def get_debug_mode() -> bool:
-    return bool(os.environ.get("DEBUG", False))
+    return bool(os.environ.get("DEBUG", True))
 
 
 def get_vp_base_url() -> str:

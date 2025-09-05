@@ -1,6 +1,5 @@
 # Vantagepoint Authentication Script
 import httpx
-from utils import config
 from utils.client_registry import client_registry
 from urllib.parse import urlencode
 import os

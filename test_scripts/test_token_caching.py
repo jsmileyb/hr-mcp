@@ -59,8 +59,11 @@ async def test_token_caching():
             return False
         
         # Verify second call was faster (cache hit)
-        if second_duration < first_duration * 0.5:  # Should be significantly faster
-            print(f"✅ Cache hit was {first_duration/second_duration:.1f}x faster")
+        if second_duration < first_duration * 0.5 and second_duration > 0:  # Should be significantly faster
+            ratio = first_duration / second_duration if second_duration > 0 else float('inf')
+            print(f"✅ Cache hit was {ratio:.1f}x faster")
+        elif second_duration == 0:
+            print("✅ Cache hit returned in <1ms (instant) - treated as success")
         else:
             print("⚠️  Cache hit wasn't significantly faster (might still be working)")
         

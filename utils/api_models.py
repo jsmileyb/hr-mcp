@@ -7,8 +7,7 @@ class AskReq(BaseModel):
     question: str = Field(..., description="User question")
     model: str = Field(
         "gpt-5", description="Model id as registered in GIA (/api/models)"
-    )
-    stream: bool = Field(True, description="Use streamed responses (server-side)")
+    )  # Streaming option removed
 
 
 class AskResp(BaseModel):

@@ -1,0 +1,82 @@
+{
+  "sources": [
+    {
+      "source": {
+        "id": "041f9216-9099-4369-ab67-2adc418ae981",
+        "type": "file"
+      },
+      "document": [
+        "### **Safety and Security**\n\n- [Safety Standards and Expectations](#page-157-0)\n- [Security Cards](#page-160-0)\n- [Self-Defense](#page-161-0)\n\n### **[State Appendix](https://gspnet4.sharepoint.com/:b:/r/sites/HR/Shared%20Documents/State-Appendix.pdf?csf=1&web=1&e=sxG3ut)**\n\n## <span id=\"page-3-0\"></span>Introduction: Why We Have a Handbook\n\nEffective Date: 11/15/22 – Supersedes Date: 5/16/17\n\nThe Gresham Smith Employee Handbook addresses many of the policies that affect your daily work life and is to be used as a tool and reference for policies that generally apply to all employees. We recognize that some states where we do business have unique laws that are only applicable to individuals employed in that state. You can access the State Appendix [here.](https://gspnet4.sharepoint.com/:b:/r/sites/HR/Shared%20Documents/State-Appendix.pdf?csf=1&web=1&e=sxG3ut)",
+        "A one-time reimbursement is available for completed self-defense courses.\n\nTo further support the firm's culture of safety, employees are encouraged to research and enroll in selfdefense training. In alignment with safe practices, the goals are to enhance situational awareness, build confidence, develop tactics to ward off danger in any environment, and improve the ability to protect oneself and others.\n\nGresham Smith will provide reimbursement of up to $100 (gross) toward the employee's successful completion of a local or web-based self-defense personal safety course. Employees are eligible to receive reimbursement for self-defense courses annually.",
+        "Each employee will be assigned a photo identification security card when hired. For the protection of all employees, this card must always be visible to others and be worn while on Gresham Smith premises. A lanyard will be provided free of charge, if you prefer this option. The security card is designed to ensure that unauthorized individuals without a card cannot access our facilities without the required employee escort.\n\n## <span id=\"page-161-0\"></span>Safety: Self-Defense\n\nEffective Date: 01/01/2024 – Supersedes: N/A\n\n### **Key Takeaways**\n\nThe firm encourages employees to seek opportunities to prioritize personal safety and well-being through self-defense courses.\n\nA one-time reimbursement is available for completed self-defense courses."
+      ],
+      "metadata": [
+        {
+          "created_by": "813dbef9-76d6-4544-8940-6875b2d5a92c",
+          "embedding_config": "{'engine': '', 'model': 'sentence-transformers/all-MiniLM-L6-v2'}",
+          "file_id": "041f9216-9099-4369-ab67-2adc418ae981",
+          "hash": "ec547a4cccc528f080f648e0b05897696380236ba8235b396d06420268857da2",
+          "name": "employee-handbook.md",
+          "source": "employee-handbook.md",
+          "start_index": 3640
+        },
+        {
+          "created_by": "813dbef9-76d6-4544-8940-6875b2d5a92c",
+          "embedding_config": "{'engine': '', 'model': 'sentence-transformers/all-MiniLM-L6-v2'}",
+          "file_id": "041f9216-9099-4369-ab67-2adc418ae981",
+          "hash": "ec547a4cccc528f080f648e0b05897696380236ba8235b396d06420268857da2",
+          "name": "employee-handbook.md",
+          "source": "employee-handbook.md",
+          "start_index": 313057
+        },
+        {
+          "created_by": "813dbef9-76d6-4544-8940-6875b2d5a92c",
+          "embedding_config": "{'engine': '', 'model': 'sentence-transformers/all-MiniLM-L6-v2'}",
+          "file_id": "041f9216-9099-4369-ab67-2adc418ae981",
+          "hash": "ec547a4cccc528f080f648e0b05897696380236ba8235b396d06420268857da2",
+          "name": "employee-handbook.md",
+          "source": "employee-handbook.md",
+          "start_index": 312378
+        }
+      ],
+      "distances": [
+        0.8348861634731293,
+        0.7783512601572529,
+        0.7419390747026089
+      ]
+    }
+  ],
+  "id": "chatcmpl-CCSMFB80WvUMUyOa1xU5yLWn4PZuq",
+  "object": "chat.completion",
+  "created": 1757084979,
+  "model": "gpt-5-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Here’s our self-defense policy:\n\n- The firm encourages employees to take self-defense courses to prioritize personal safety and well-being, with goals such as enhancing situational awareness, building confidence, developing tactics to ward off danger, and improving the ability to protect oneself and others [1].\n- Reimbursement: Up to $100 (gross) upon successful completion of a local or web-based self-defense/personal safety course. Employees are eligible for one reimbursement per year [1].\n- Effective date: 01/01/2024 [1].\n\nWould you like guidance on how to submit the reimbursement?",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 886,
+    "completion_tokens": 896,
+    "total_tokens": 1782,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 768,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}

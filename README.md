@@ -10,9 +10,7 @@ OpenAPI docs are available at `/docs` and `/redoc` when running locally.
 
 ## Features
 
-- Ask HR policy questions with source/page citations: `POST /ask-file`
-  - **NEW: Streaming support** - Set `stream: true` for real-time token delivery (SSE)
-  - **Backward compatible** - Non-streaming responses work unchanged
+- Ask HR policy questions with source/page citations: `POST /ask-file` (non-streaming JSON response)
 - Get leadership & employment summary (HRP, Director, MVP/EVP, CLL, tenure, etc.): `POST /get-my-leadership`
 - Get your current vacation balance from Vantagepoint: `POST /get-my-vacation`
 - One-call PTO answer (balance + handbook accrual explanation with citations): `POST /answer-my-pto`
@@ -21,7 +19,8 @@ OpenAPI docs are available at `/docs` and `/redoc` when running locally.
 
 ## Performance Enhancements
 
-- **Streaming Responses** - True streaming from OWUI to client eliminates perceived latency
+<!-- Streaming removed: previously offered SSE token streaming -->
+
 - **Optimized HTTP client usage** - Shared clients per host eliminate redundant TLS handshakes
 - **Token Caching** - Service tokens cached with automatic refresh on expiration
 
@@ -105,25 +104,9 @@ The app will be available at http://localhost:5001
 
 Ask HR policy questions against the Employee Handbook in GIA.
 
-**Request:**
+**Request Body:** `{ "question": "...", "model": "gpt-5" }`
 
-- Body: `{ "question": "...", "model": "gpt-5", "stream": true/false }`
-
-**Response (stream: false):**
-
-- JSON: `{"normalized_text": "...", "sources": [...], "instructions": "..."}`
-
-**Response (stream: true):**
-
-- Content-Type: `text/event-stream`
-- Format: Server-Sent Events (SSE) with real-time token delivery
-- Messages: metadata, sources, content chunks, completion signal
-
-**Streaming Benefits:**
-
-- 75-90% reduction in perceived response time
-- Real-time token display for better user experience
-- Backward compatible with existing non-streaming clients
+**Response:** JSON: `{"normalized_text": "...", "sources": [...], "instructions": "..."}`
 
 ### POST /get-my-leadership
 
@@ -153,33 +136,7 @@ Pytest is configured in `requirements.txt`.
 pytest -q
 ```
 
-### Streaming Tests
-
-**Python Test Script:**
-
-```bash
-python test_scripts/test_streaming.py
-```
-
-**Interactive Browser Client:**
-
-1. Start the server: `uvicorn main:app --host 0.0.0.0 --port 5001 --reload`
-2. Open `test_streaming_client.html` in a browser
-3. Test both streaming and non-streaming responses
-
-**Manual cURL Tests:**
-
-```bash
-# Streaming response
-curl -N -H "Accept: text/event-stream" -H "Content-Type: application/json" \
-  -d '{"question":"What is the vacation policy?","model":"gpt-5","stream":true}' \
-  http://localhost:5001/ask-file
-
-# Non-streaming response
-curl -H "Content-Type: application/json" \
-  -d '{"question":"What is the vacation policy?","model":"gpt-5","stream":false}' \
-  http://localhost:5001/ask-file
-```
+<!-- Streaming tests and examples removed as streaming is no longer supported -->
 
 ## Troubleshooting
 
