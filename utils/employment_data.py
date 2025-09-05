@@ -1,7 +1,9 @@
 # Data transformation utilities for employment and HR data
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from utils.datetime_utils import years_between
+from datetime import datetime
+
 
 
 class LeadershipInfo(BaseModel):
@@ -18,6 +20,12 @@ class LeadershipInfo(BaseModel):
     evp_name: Optional[str] = None
     evp_email: Optional[str] = None
 
+    model_config = {
+        "exclude_none": True,
+        "orm_mode": True,
+    }
+
+
 
 class EmploymentSummary(BaseModel):
     employee_id: Optional[str] = None
@@ -33,24 +41,31 @@ class EmploymentSummary(BaseModel):
     years_with_gresham_smith: Optional[float] = None
     los_years: Optional[float] = None
 
+    model_config = {
+        "exclude_none": True,
+        "orm_mode": True,
+    }
+
+
 
 class EmploymentResp(BaseModel):
-    # What we'll send back from /get-my-leadership (aka ask_employment_details)
+    """
+    Response model for /get-my-leadership (ask_employment_details)
+    """
     leadership: LeadershipInfo
     summary: EmploymentSummary
+
+    model_config = {
+        "exclude_none": True,
+        "orm_mode": True,
+    }
+
 
 
 def build_employment_payload(raw: dict) -> EmploymentResp:
     """
     Build structured employment response from raw employee data.
-    
-    Args:
-        raw: Raw employee data dictionary
-        
-    Returns:
-        EmploymentResp: Structured employment response
     """
-    # Pull top-level fields with safe defaults
     market = (raw or {}).get("Market")
     leadership = LeadershipInfo(
         hrp_employee_id=raw.get("hrpEmployeeID"),
@@ -67,13 +82,19 @@ def build_employment_payload(raw: dict) -> EmploymentResp:
         evp_email=raw.get("EVP_Email"),
     )
 
-    # If NOT Corporate Services, we care about MVP/EVP; otherwise Director is primary.
-    if market and market.strip().lower() != "corporate services":
-        # If MVP/EVP missing, keep Director as fallback (already populated)
-        pass  # data is already in the model
-    else:
-        # Corporate Services → Director path (already in model)
-        pass
+    # Format nomination_date as MM/dd/yyyy or spell out the date if possible
+    def format_date(date_str):
+        if not date_str:
+            return None
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            return dt.strftime("%m/%d/%Y")
+        except ValueError:
+            try:
+                dt = datetime.fromisoformat(date_str)
+                return dt.strftime("%m/%d/%Y")
+            except Exception:
+                return date_str
 
     summary = EmploymentSummary(
         employee_id=raw.get("EmployeeID"),
@@ -83,9 +104,9 @@ def build_employment_payload(raw: dict) -> EmploymentResp:
         market=market,
         department=raw.get("Department"),
         nomination_level=raw.get("NominationLevel"),
-        nomination_date=raw.get("NominationDate"),
-        latest_hire_date=raw.get("LatestHireDate"),
-        original_hire_date=raw.get("OriginalHireDate"),
+        nomination_date=format_date(raw.get("NominationDate")),
+        latest_hire_date=format_date(raw.get("LatestHireDate")),
+        original_hire_date=format_date(raw.get("OriginalHireDate")),
         years_with_gresham_smith=raw.get("YearsWithGreshamSmith"),
         los_years=years_between(raw.get("LatestHireDate")),
     )

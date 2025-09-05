@@ -5,6 +5,7 @@ Import this module to access authentication functionality across the application
 """
 
 from .service_auth import (
+    extract_single_user_email,
     get_service_token, 
     get_cached_service_token, 
     get_current_user_email, 
@@ -18,6 +19,7 @@ from .vp_auth import get_vantagepoint_token
 __all__ = [
     "get_service_token",
     "get_cached_service_token", 
+    "extract_single_user_email",
     "get_current_user_email",
     "make_authenticated_request",
     "clear_token_cache",

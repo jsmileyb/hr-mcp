@@ -20,6 +20,19 @@ _TOKEN_CACHE = {
 _TOKEN_TTL = 3600  # 1 hour default TTL
 
 
+def extract_single_user_email(user_response: dict) -> str:
+    """
+    Ensure the user response contains exactly one user and extract the email.
+    Raises HTTPException if not found or ambiguous.
+    """
+    if not user_response or user_response.get("total") != 1:
+        raise HTTPException(status_code=502, detail="Could not uniquely resolve current user from GIA/OWUI")
+    users = user_response.get("users", [])
+    if not users or not users[0].get("email"):
+        raise HTTPException(status_code=502, detail="No email found for current user")
+    return users[0]["email"]
+
+
 async def get_cached_service_token(client: httpx.AsyncClient, jwt: str) -> str:
     """
     Get a cached service token, exchanging for a new one if needed.
@@ -140,21 +153,22 @@ async def get_service_token(client: httpx.AsyncClient, jwt: str) -> str:
     return await get_cached_service_token(client, jwt)
 
 
-async def get_current_user_email(client: httpx.AsyncClient, jwt: str) -> dict:
+async def get_current_user_email(user: str, client: httpx.AsyncClient, jwt: str) -> dict:
     """
     Fetch the authenticated user's email from OWUI /api/v1/auths/.
     Uses cached service token.
+    
     """
     try:
         r = await make_authenticated_request(
-            client, jwt, "GET", "/api/v1/auths/",
+            client, jwt, "GET", f"/api/v1/users/?page=1&query={user}&order_by=created_at&direction=asc",
             headers={"Accept": "application/json"}
         )
         payload = r.json()
     except httpx.HTTPError as e:
-        logger.error("Failed to fetch /api/v1/auths/: %s", e)
-        raise HTTPException(status_code=502, detail=f"GIA /api/v1/auths/ error: {e}")
+        logger.error("Failed to fetch /api/v1/users/: %s", e)
+        raise HTTPException(status_code=502, detail=f"GIA /api/v1/users/ error: {e}")
 
     if not payload:
-        raise HTTPException(status_code=502, detail="No payload in /api/v1/auths/ response")
+        raise HTTPException(status_code=502, detail="No payload in /api/v1/users/ response")
     return payload
