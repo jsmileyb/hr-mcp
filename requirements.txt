@@ -6,6 +6,12 @@ httpx
 httpx[http2]
 xmltodict
 asyncio
+python-dotenv
+
+# Dependencies for ddtrace compatibility
+opentelemetry-api
+protobuf
+wrapt
 
 # Speed-ups (Linux/macOS only)
 uvloop; platform_system != "Windows"

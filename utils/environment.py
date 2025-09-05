@@ -60,8 +60,12 @@ def get_owui_jwt() -> str:
     return os.environ.get("OWUI_JWT", "")
 
 
-def get_hardcoded_file_id() -> str:
-    return os.environ.get("HARDCODED_FILE_ID", "")
+def get_hardcoded_handbook_file_id() -> str:
+    return os.environ.get("HARDCODED_HANDBOOK_FILE_ID", "")
+
+
+def get_hardcoded_state_file_id() -> str:
+    return os.environ.get("HARDCODED_STATE_FILE_ID", "")
 
 
 def get_openai_api_key() -> str:
