@@ -1,34 +1,30 @@
 # HR MCP — HR Handbook & Policy MCP for GIA
 
-FastAPI service that answers HR policy questions and returns employee-specific details by integrating:
+FastAPI service for Gresham Smith that answers HR policy questions and returns employee-specific details by integrating:
 
-- GIA/OWUI for RAG over the Employee Handbook
-- Microsoft Graph/Power Automate for employee metadata
-- Vantagepoint for PTO balances
+- **GIA/OWUI** for retrieval-augmented generation (RAG) over the Employee Handbook
+- **Microsoft Graph/Power Automate** for employee metadata
+- **Vantagepoint** for PTO balances
 
-OpenAPI docs are available at `/docs` and `/redoc` when running locally.
+OpenAPI docs are available at [`/docs`](http://localhost:5001/docs) and [`/redoc`](http://localhost:5001/redoc) when running locally.
 
 ## Features
 
-- Ask HR policy questions with source/page citations: `POST /ask-file` (non-streaming JSON response)
 - Get leadership & employment summary (HRP, Director, MVP/EVP, CLL, tenure, etc.): `POST /get-my-leadership`
 - Get your current vacation balance from Vantagepoint: `POST /get-my-vacation`
-- One-call PTO answer (balance + handbook accrual explanation with citations): `POST /answer-my-pto`
 - Robust model resolution against GIA `/api/models` (handles many payload shapes)
-- Flexible handling of OWUI responses (JSON, SSE, NDJSON, or text)
+- Flexible handling of OWUI responses (JSON, NDJSON, or text)
 
 ## Performance Enhancements
 
-<!-- Streaming removed: previously offered SSE token streaming -->
-
-- **Optimized HTTP client usage** - Shared clients per host eliminate redundant TLS handshakes
-- **Token Caching** - Service tokens cached with automatic refresh on expiration
+- **Optimized HTTP client usage** — Shared async clients per host eliminate redundant TLS handshakes
+- **Token Caching** — Service tokens cached with automatic refresh on expiration
 
 ## Project Structure
 
 - `main.py` — FastAPI app and endpoints
-- `auth/` — Vantagepoint auth helper (`get_vantagepoint_token`)
-- `utils/` — Config helpers
+- `auth/` — Auth helpers (Graph, Power Automate, Vantagepoint)
+- `utils/` — Config, data, and HTTP helpers
 - `test_scripts/` — Ad-hoc test scripts for local verification
 - `requirements.txt` / `pyproject.toml` — dependencies
 - `Dockerfile`, `compose.yaml` — containerization
@@ -37,7 +33,7 @@ OpenAPI docs are available at `/docs` and `/redoc` when running locally.
 
 Environment variables are loaded via `python-dotenv`.
 
-Minimum required:
+**Minimum required:**
 
 - `OWUI_JWT` — Bootstrap JWT used to exchange for a service token
 - `GIA_URL` — Base URL of your GIA/OWUI gateway (e.g., https://gia.example.com)
@@ -46,7 +42,7 @@ Minimum required:
 - `VP_BASE_URL` — Vantagepoint API base URL
 - `VP_SP_GETVACATION` — Name of the Vantagepoint stored procedure used for PTO
 
-Optional:
+**Optional:**
 
 - `OPENAI_API_KEY` — If you use any post-processing with OpenAI
 - `OPENAI_MODEL` — Defaults to `gpt-4o-mini`
@@ -76,10 +72,10 @@ pip install -r requirements.txt
 2. Start the API with Uvicorn (port 5001)
 
 ```bash
-uvicorn "main:app" --host 0.0.0.0 --port 5001 --reload
+uvicorn main:app --host 0.0.0.0 --port 5001 --reload
 ```
 
-Visit http://localhost:5001/docs
+Visit [http://localhost:5001/docs](http://localhost:5001/docs)
 
 ## Docker
 
@@ -90,41 +86,27 @@ docker build -t hr-mcp .
 docker run --rm -p 5001:5001 --env-file .env hr-mcp
 ```
 
-With Docker Compose (service name: `vantagepoint-server`):
+With Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-The app will be available at http://localhost:5001
+The app will be available at [http://localhost:5001](http://localhost:5001)
 
 ## API Summary
 
-### POST /ask-file
-
-Ask HR policy questions against the Employee Handbook in GIA.
-
-**Request Body:** `{ "question": "...", "model": "gpt-5" }`
-
-**Response:** JSON: `{"normalized_text": "...", "sources": [...], "instructions": "..."}`
-
-### POST /get-my-leadership
+### `POST /get-my-leadership`
 
 Returns leadership and employment summary for the authenticated user (via OWUI auth).
 
-- Returns: `leadership{...}`, `summary{...}` (employee id, display name, email, CLL, tenure, etc.).
+- Returns: `leadership{...}`, `summary{...}` (employee id, display name, email, CLL, tenure, etc.)
 
-### POST /get-my-vacation
+### `POST /get-my-vacation`
 
 Returns current and starting PTO balances from Vantagepoint for the authenticated user.
 
-- Returns: `employee_id`, `starting_balance`, `current_balance`, plus `instructions` to present in hours and days (8h/day).
-
-### POST /answer-my-pto
-
-Combines your PTO balance with a handbook-backed accrual explanation and citations.
-
-- Returns: `vacation{...}`, `accrual_explanation`, `citations[]`, `used_tools`.
+- Returns: `employee_id`, `starting_balance`, `current_balance`, plus `instructions` to present in hours and days (8h/day)
 
 ## Testing
 
@@ -135,8 +117,6 @@ Pytest is configured in `requirements.txt`.
 ```bash
 pytest -q
 ```
-
-<!-- Streaming tests and examples removed as streaming is no longer supported -->
 
 ## Troubleshooting
 

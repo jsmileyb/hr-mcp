@@ -7,10 +7,4 @@ class AskReq(BaseModel):
     question: str = Field(..., description="User question")
     model: str = Field(
         "gpt-5", description="Model id as registered in GIA (/api/models)"
-    )  # Streaming option removed
-
-
-class AskResp(BaseModel):
-    normalized_text: Optional[str] = None
-    sources: Optional[list] = None
-    instructions: Optional[str] = None
+    )  

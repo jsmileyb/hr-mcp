@@ -5,7 +5,7 @@ import asyncio
 
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-## StreamingResponse removed (streaming feature deprecated)
+
 from dotenv import load_dotenv
 
 from utils.environment import (
@@ -20,7 +20,6 @@ from utils.environment import (
 from utils.api_models import AskReq
 from utils.employment_data import EmploymentResp, build_employment_payload
 from utils.vacation_data import VacationResp
-from utils.client_registry import client_registry
 from auth import (
     get_cached_service_token,
     get_current_user_email,
@@ -75,14 +74,8 @@ _ensure_logger()
 OWUI = get_owui_url()
 JWT = get_owui_jwt()
 HARDCODED_FILE_ID = get_hardcoded_file_id()
-
-# Shared async client (init on startup)
 client: httpx.AsyncClient | None = None
-
-# Log environment configuration
 log_environment_config(logger)
-
-# Validate required environment variables
 validate_required_env()
 
 
@@ -96,22 +89,19 @@ async def _startup():
         limits=httpx.Limits(max_keepalive_connections=32, max_connections=128),
         http2=True, 
     )
-    
-    # Register the main GIA client in the registry
-    client_registry.set_gia_client(client)
-    
+        
     logger.info("HTTP client initialized for GIA at %s", OWUI)
 
 
 @app.on_event("shutdown")
 async def _shutdown():
-    global client
+    global client 
     if client:
         await client.aclose()
         logger.info("HTTP client closed")
     
     # Close all registered clients
-    await client_registry.close_all()
+    # await client_registry.close_all()
     logger.info("All shared clients closed")
 
 
