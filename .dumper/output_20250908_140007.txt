@@ -1,0 +1,3223 @@
+Notes:
+------
+OWUI not routing to MCP
+
+Directory Structure:
+-------------------
+/ 
+├── .github/
+│   └── instructions/
+│       └── mcp_instructions.instructions.md
+├── .pytest_cache/
+│   ├── v/
+│   │   └── cache/
+│   │       ├── lastfailed
+│   │       └── nodeids
+│   ├── CACHEDIR.TAG
+│   └── README.md
+├── auth/
+│   ├── __pycache__/
+│   │   ├── __init__.cpython-311.pyc
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── graph_auth.cpython-311.pyc
+│   │   ├── graph_auth.cpython-312.pyc
+│   │   ├── power_automate_auth.cpython-311.pyc
+│   │   ├── power_automate_auth.cpython-312.pyc
+│   │   ├── service_auth.cpython-311.pyc
+│   │   ├── service_auth.cpython-312.pyc
+│   │   ├── vp_auth.cpython-311.pyc
+│   │   └── vp_auth.cpython-312.pyc
+│   ├── __init__.py
+│   ├── graph_auth.py
+│   ├── power_automate_auth.py
+│   ├── service_auth.py
+│   └── vp_auth.py
+├── debug/
+│   └── last_owui_resp.json
+├── test_scripts/
+│   ├── __pycache__/
+│   │   ├── simple_test_service_token.cpython-312.pyc
+│   │   ├── test_api_with_caching.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_auth_imports.py
+│   │   ├── test_client_registry.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_current_user_email.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_get_service_token.cpython-312-pytest-8.4.1.pyc
+│   │   ├── test_graph_and_pa.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_graph_token.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_integration.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_response_processor_optimization.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_service_token.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_streaming.cpython-311-pytest-8.4.1.pyc
+│   │   ├── test_token_caching.cpython-311-pytest-8.4.1.pyc
+│   │   └── test_vp_auth_live.cpython-311-pytest-8.4.1.pyc
+│   ├── simple_test_service_token.py
+│   ├── test_api_with_caching.py
+│   ├── test_client_registry.py
+│   ├── test_current_user_email.py
+│   ├── test_graph_and_pa.py
+│   ├── test_graph_token.py
+│   ├── test_integration.py
+│   ├── test_response_processor_optimization.py
+│   ├── test_service_token.py
+│   ├── test_streaming.py
+│   ├── test_token_caching.py
+│   └── test_vp_auth_live.py
+├── utils/
+│   ├── __pycache__/
+│   │   ├── accrual_parser.cpython-311.pyc
+│   │   ├── accrual_parser.cpython-312.pyc
+│   │   ├── api_models.cpython-311.pyc
+│   │   ├── api_models.cpython-312.pyc
+│   │   ├── client_registry.cpython-311.pyc
+│   │   ├── client_registry.cpython-312.pyc
+│   │   ├── config.cpython-311.pyc
+│   │   ├── config.cpython-312.pyc
+│   │   ├── datetime_utils.cpython-311.pyc
+│   │   ├── datetime_utils.cpython-312.pyc
+│   │   ├── employment_data.cpython-311.pyc
+│   │   ├── employment_data.cpython-312.pyc
+│   │   ├── environment.cpython-311.pyc
+│   │   ├── environment.cpython-312.pyc
+│   │   ├── http_client.cpython-311.pyc
+│   │   ├── http_client.cpython-312.pyc
+│   │   ├── page_index.cpython-311.pyc
+│   │   ├── page_index.cpython-312.pyc
+│   │   ├── response_processor.cpython-311.pyc
+│   │   ├── response_processor.cpython-312.pyc
+│   │   ├── security.cpython-311.pyc
+│   │   ├── security.cpython-312.pyc
+│   │   ├── vacation_data.cpython-311.pyc
+│   │   ├── vacation_data.cpython-312.pyc
+│   │   ├── vantagepoint.cpython-311.pyc
+│   │   └── vantagepoint.cpython-312.pyc
+│   ├── api_models.py
+│   ├── client_registry.py
+│   ├── datetime_utils.py
+│   ├── employment_data.py
+│   ├── environment.py
+│   ├── security.py
+│   ├── vacation_data.py
+│   └── vantagepoint.py
+├── .env.sample
+├── .python-version
+├── compose.yaml
+├── Dockerfile
+├── install_uv.ps1
+├── main.py
+├── pyproject.toml
+├── pytest.ini
+├── README.md
+├── requirements.txt
+└── test_streaming_client.html
+
+File Contents:
+--------------
+File: .\compose.yaml
+--------------------------------------------------
+Content of .\compose.yaml:
+services:
+  hr-assistant-server:
+    build:
+      context: .
+    ports:
+      - 8000:8000
+
+
+File: .\install_uv.ps1
+--------------------------------------------------
+Content of .\install_uv.ps1:
+# Check if uv is already installed
+try {
+    # Refresh PATH to include any recently installed programs
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+    
+    # Try to get uv version
+    $uvVersion = uv --version 2>$null
+    if ($uvVersion) {
+        Write-Host "[SUCCESS] uv is already installed: $uvVersion" -ForegroundColor Green
+        Write-Host "[INFO] No installation needed - you're all set!" -ForegroundColor Cyan
+        exit 0
+    }
+} catch {
+    # uv not found, continue with installation
+}
+
+Write-Host "[INFO] Installing uv..." -ForegroundColor Yellow
+
+# Install uv using the official installer
+try {
+    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+    
+    # Refresh PATH after installation
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
+    
+    # Verify installation
+    $uvVersion = uv --version
+    Write-Host "[SUCCESS] Successfully installed uv: $uvVersion" -ForegroundColor Green
+    
+} catch {
+    Write-Host "[ERROR] Failed to install uv: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+File: .\main.py
+--------------------------------------------------
+Content of .\main.py:
+
+import logging
+import sys
+import uuid
+import asyncio
+import httpx
+from fastapi import FastAPI, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+from utils.environment import (
+    log_environment_config, validate_required_env, get_tool_name, get_owui_url, get_openai_api_key, get_hardcoded_file_id, get_debug_mode
+)
+from utils.api_models import AskReq
+from utils.employment_data import EmploymentResp, build_employment_payload
+from utils.vacation_data import VacationResp
+from auth import (
+    get_cached_service_token, extract_single_user_email, get_current_user_email, get_graph_token_async, call_pa_workflow_async, get_vantagepoint_token
+)
+from utils.vantagepoint import get_vacation_days
+
+load_dotenv()
+
+
+# --- App & Logging ---
+app = FastAPI(
+    title="HR Handbook and Policy MCP for GIA",
+    version="0.0.1",
+    description="MCP Server to retrieve HR policies and employee information."
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+logging.basicConfig(
+    level=logging.DEBUG if get_debug_mode() else logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(get_tool_name())
+
+def _ensure_logger():
+    desired_level = logging.DEBUG if get_debug_mode() else logging.INFO
+    logger.setLevel(desired_level)
+    if not logger.handlers:
+        h = logging.StreamHandler(sys.stdout)
+        h.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+        logger.addHandler(h)
+    logger.propagate = False
+
+_ensure_logger()
+
+
+# --- Config / HTTP client ---
+
+OWUI = get_owui_url()
+OWUI_KEY = get_openai_api_key()
+HARDCODED_FILE_ID = get_hardcoded_file_id()
+client: httpx.AsyncClient | None = None
+log_environment_config(logger)
+validate_required_env()
+
+
+
+@app.on_event("startup")
+async def _startup():
+    global client
+    client = httpx.AsyncClient(
+        base_url=OWUI,
+        headers={"Accept": "application/json"},
+        timeout=httpx.Timeout(connect=10, read=60, write=60, pool=60),
+        limits=httpx.Limits(max_keepalive_connections=32, max_connections=128),
+        http2=True,
+    )
+    logger.info("HTTP client initialized for GIA at %s", OWUI)
+
+@app.on_event("shutdown")
+async def _shutdown():
+    global client
+    if client:
+        await client.aclose()
+        logger.info("HTTP client closed")
+    logger.info("All shared clients closed")
+
+
+
+# --- Routes ---
+
+@app.post("/get-my-leadership", response_model=EmploymentResp, response_model_exclude_none=True, summary="Get my leadership & employment details")
+async def ask_employment_details(req: AskReq = Body(...)):
+    """
+    Returns structured leadership and employment details for the current user.
+    """
+    rid = uuid.uuid4().hex[:8]
+    logger.debug("ask_employment_details[%s] model=%s", rid, req.model)
+    graph_auth = await get_graph_token_async()
+    current_user = await get_current_user_email(req.user, client)
+    email = extract_single_user_email(current_user)
+    employee_details = await call_pa_workflow_async({"CompanyEmailAddress": email}, graph_auth)
+    if not employee_details:
+        raise HTTPException(status_code=502, detail="Power Automate workflow returned no data")
+    return build_employment_payload(employee_details)
+
+
+@app.post("/get-my-vacation", response_model=VacationResp, response_model_exclude_none=True, summary="Get my vacation details")
+async def ask_vacation_details(req: AskReq = Body(...)):
+    """
+    Returns structured vacation details for the current user.
+    """
+    rid = uuid.uuid4().hex[:8]
+    logger.debug("ask_vacation_details[%s] model=%s", rid, req.model)
+    logger.debug(f"{'~' * 25}This is the request: {req}")
+    graph_auth_coro = get_graph_token_async()
+    graph_auth = await graph_auth_coro
+    if not graph_auth:
+        raise HTTPException(status_code=502, detail="Failed to acquire Microsoft Graph token")
+    current_user = await get_current_user_email(req.user, client)
+    email = extract_single_user_email(current_user)
+    pa_coro = call_pa_workflow_async({"CompanyEmailAddress": email}, graph_auth)
+    vp_token_coro = get_vantagepoint_token()
+    employee_details, vp_token_response = await asyncio.gather(pa_coro, vp_token_coro)
+    if not employee_details:
+        raise HTTPException(status_code=502, detail="Power Automate workflow returned no data")
+    if not vp_token_response or not vp_token_response.get("access_token"):
+        raise HTTPException(status_code=502, detail="Vantagepoint API token retrieval failed")
+    body = {"EEID": employee_details.get("EmployeeID")}
+    vacation_details = await get_vacation_days(body, vp_token_response.get("access_token"))
+    if not vacation_details:
+        raise HTTPException(status_code=502, detail="Vantagepoint Stored Procedure returned no data")
+    return {
+        "employee_id": vacation_details.get("employee_id"),
+        "starting_balance": vacation_details.get("starting_balance"),
+        "current_balance": vacation_details.get("current_balance"),
+        "instructions": (
+            "The return values are in hours - show the results in hours and days. Our standard work day is 8 hours. "
+            "If no vacation balance is found, refer the user to their HRP or manager - do not offer to refer to the servicedesk@greshamsmith.com. "
+            "Refer to the 'employee-handbook.md' file for a breakdown on accrual details for individual employees using a company tenure. "
+        ),
+    }
+
+
+File: .\pytest.ini
+--------------------------------------------------
+Content of .\pytest.ini:
+[pytest]
+asyncio_mode = auto
+filterwarnings =
+    ignore::DeprecationWarning:fastapi.*:
+
+File: .\README.md
+--------------------------------------------------
+Content of .\README.md:
+# HR MCP — HR Handbook & Policy MCP for GIA
+
+FastAPI service for Gresham Smith that answers HR policy questions and returns employee-specific details by integrating:
+
+- **GIA/OWUI** for retrieval-augmented generation (RAG) over the Employee Handbook
+- **Microsoft Graph/Power Automate** for employee metadata
+- **Vantagepoint** for PTO balances
+
+OpenAPI docs are available at [`/docs`](http://localhost:5001/docs) and [`/redoc`](http://localhost:5001/redoc) when running locally.
+
+## Features
+
+- Get leadership & employment summary (HRP, Director, MVP/EVP, CLL, tenure, etc.): `POST /get-my-leadership`
+- Get your current vacation balance from Vantagepoint: `POST /get-my-vacation`
+- Robust model resolution against GIA `/api/models` (handles many payload shapes)
+- Flexible handling of OWUI responses (JSON, NDJSON, or text)
+
+## Performance Enhancements
+
+- **Optimized HTTP client usage** — Shared async clients per host eliminate redundant TLS handshakes
+- **Token Caching** — Service tokens cached with automatic refresh on expiration
+
+## Project Structure
+
+- `main.py` — FastAPI app and endpoints
+- `auth/` — Auth helpers (Graph, Power Automate, Vantagepoint)
+- `utils/` — Config, data, and HTTP helpers
+- `test_scripts/` — Ad-hoc test scripts for local verification
+- `requirements.txt` / `pyproject.toml` — dependencies
+- `Dockerfile`, `compose.yaml` — containerization
+
+## Configuration (.env)
+
+Environment variables are loaded via `python-dotenv`.
+
+**Minimum required:**
+
+- `OWUI_JWT` — Bootstrap JWT used to exchange for a service token
+- `GIA_URL` — Base URL of your GIA/OWUI gateway (e.g., https://gia.example.com)
+- `HARDCODED_FILE_ID` — File id of the Employee Handbook in GIA
+- `PA_URL` — Power Automate flow HTTPS endpoint (for employee metadata)
+- `VP_BASE_URL` — Vantagepoint API base URL
+- `VP_SP_GETVACATION` — Name of the Vantagepoint stored procedure used for PTO
+
+**Optional:**
+
+- `OPENAI_API_KEY` — If you use any post-processing with OpenAI
+- `OPENAI_MODEL` — Defaults to `gpt-4o-mini`
+- `DEBUG` — Set to `1`/`true` for verbose logs
+- `GRAPH_TOKEN_URL`, `GRAPH_CLIENT_ID`, `GRAPH_SECRET` — If your Flow requires Entra ID token acquisition
+
+Example `.env`:
+
+```
+GIA_URL=https://gia.example.com
+OWUI_JWT=eyJhbGciOi...
+HARDCODED_FILE_ID=handbook-file-id
+PA_URL=https://prod-00.westus.logic.azure.com:443/workflows/.../triggers/manual/paths/invoke
+VP_BASE_URL=https://vantagepoint.example.com
+VP_SP_GETVACATION=HR_GetVacationBalances
+DEBUG=1
+```
+
+## Install & Run (local)
+
+1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Start the API with Uvicorn (port 5001)
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 5001 --reload
+```
+
+Visit [http://localhost:5001/docs](http://localhost:5001/docs)
+
+## Docker
+
+Build and run the container:
+
+```bash
+docker build -t hr-mcp .
+docker run --rm -p 5001:5001 --env-file .env hr-mcp
+```
+
+With Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The app will be available at [http://localhost:5001](http://localhost:5001)
+
+## API Summary
+
+### `POST /get-my-leadership`
+
+Returns leadership and employment summary for the authenticated user (via OWUI auth).
+
+- Returns: `leadership{...}`, `summary{...}` (employee id, display name, email, CLL, tenure, etc.)
+
+### `POST /get-my-vacation`
+
+Returns current and starting PTO balances from Vantagepoint for the authenticated user.
+
+- Returns: `employee_id`, `starting_balance`, `current_balance`, plus `instructions` to present in hours and days (8h/day)
+
+## Testing
+
+### Unit Tests
+
+Pytest is configured in `requirements.txt`.
+
+```bash
+pytest -q
+```
+
+## Troubleshooting
+
+- 502 from GIA endpoints: verify `OWUI_JWT`, network access to `GIA_URL`, and that the Handbook file id exists and is processed.
+- Empty PTO results: confirm Vantagepoint token retrieval and `VP_SP_GETVACATION` name.
+- Power Automate errors: check `PA_URL` and, if needed, `GRAPH_*` credentials.
+
+## License
+
+This repo is made available for demonstration purposes only. No license is granted for reuse.
+
+
+File: .\requirements.txt
+--------------------------------------------------
+Content of .\requirements.txt:
+# Core
+fastapi
+uvicorn
+pydantic
+httpx
+httpx[http2]
+xmltodict
+asyncio
+python-dotenv
+
+# Speed-ups (Linux/macOS only)
+uvloop; platform_system != "Windows"
+httptools; platform_system != "Windows"
+
+# Dev/test
+pytest
+pytest-asyncio
+
+
+File: .\test_streaming_client.html
+--------------------------------------------------
+Content of .\test_streaming_client.html:
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HR-MCP Streaming Test Client</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .input-section {
+        border: 1px solid #ddd;
+        padding: 20px;
+        border-radius: 8px;
+      }
+      .output-section {
+        border: 1px solid #ddd;
+        padding: 20px;
+        border-radius: 8px;
+        min-height: 200px;
+      }
+      textarea {
+        width: 100%;
+        height: 80px;
+        margin: 10px 0;
+      }
+      button {
+        padding: 10px 20px;
+        margin-right: 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .stream-btn {
+        background-color: #007bff;
+        color: white;
+      }
+      .normal-btn {
+        background-color: #28a745;
+        color: white;
+      }
+      .clear-btn {
+        background-color: #dc3545;
+        color: white;
+      }
+      .response {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 4px;
+        white-space: pre-wrap;
+      }
+      .metadata {
+        background-color: #e7f3ff;
+        border-color: #b3d7ff;
+      }
+      .sources {
+        background-color: #f0f8f0;
+        border-color: #c3e6c3;
+      }
+      .error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+      }
+      .status {
+        font-weight: bold;
+        margin: 10px 0;
+      }
+      .streaming {
+        color: #007bff;
+      }
+      .completed {
+        color: #28a745;
+      }
+      .failed {
+        color: #dc3545;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>HR-MCP Streaming Test Client</h1>
+
+      <div class="input-section">
+        <h3>Ask HR Policy Question</h3>
+        <label for="question">Question:</label>
+        <textarea
+          id="question"
+          placeholder="Enter your HR policy question here..."
+        >
+What is the vacation policy?</textarea
+        >
+
+        <label for="model">Model:</label>
+        <select id="model">
+          <option value="gpt-5">gpt-5</option>
+          <option value="gpt-4o">gpt-4o</option>
+          <option value="gpt-4">gpt-4</option>
+        </select>
+
+        <div>
+          <button class="stream-btn" onclick="askQuestion(true)">
+            Ask with Streaming
+          </button>
+          <button class="normal-btn" onclick="askQuestion(false)">
+            Ask without Streaming
+          </button>
+          <button class="clear-btn" onclick="clearOutput()">
+            Clear Output
+          </button>
+        </div>
+      </div>
+
+      <div class="output-section">
+        <h3>Response</h3>
+        <div id="status" class="status">Ready</div>
+        <div id="output"></div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:5001";
+
+      function setStatus(message, className = "") {
+        const statusEl = document.getElementById("status");
+        statusEl.textContent = message;
+        statusEl.className = "status " + className;
+      }
+
+      function addResponse(content, className = "response") {
+        const outputEl = document.getElementById("output");
+        const responseEl = document.createElement("div");
+        responseEl.className = className;
+        responseEl.textContent = content;
+        outputEl.appendChild(responseEl);
+        outputEl.scrollTop = outputEl.scrollHeight;
+      }
+
+      function clearOutput() {
+        document.getElementById("output").innerHTML = "";
+        setStatus("Ready");
+      }
+
+      async function askQuestion(useStreaming) {
+        const question = document.getElementById("question").value.trim();
+        const model = document.getElementById("model").value;
+
+        if (!question) {
+          alert("Please enter a question");
+          return;
+        }
+
+        clearOutput();
+
+        const payload = {
+          question: question,
+          model: model,
+          stream: useStreaming,
+        };
+
+        try {
+          if (useStreaming) {
+            await handleStreamingRequest(payload);
+          } else {
+            await handleNormalRequest(payload);
+          }
+        } catch (error) {
+          setStatus("Request failed", "failed");
+          addResponse(`Error: ${error.message}`, "response error");
+        }
+      }
+
+      async function handleStreamingRequest(payload) {
+        setStatus("Streaming response...", "streaming");
+
+        const response = await fetch(`${API_BASE}/ask-file`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              setStatus("Stream completed", "completed");
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop(); // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (line.trim() === "") continue;
+
+              if (line.startsWith("data: ")) {
+                const data = line.substring(6).trim();
+
+                if (data === "[DONE]") {
+                  setStatus("Stream completed", "completed");
+                  return;
+                }
+
+                try {
+                  const parsed = JSON.parse(data);
+                  handleStreamChunk(parsed);
+                } catch (e) {
+                  addResponse(`Raw data: ${data}`, "response");
+                }
+              } else if (line.trim()) {
+                addResponse(`Event: ${line}`, "response");
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+
+      function handleStreamChunk(chunk) {
+        if (chunk.type === "metadata") {
+          addResponse(
+            `Metadata: Request ID ${chunk.request_id}`,
+            "response metadata"
+          );
+          addResponse(
+            `Instructions: ${chunk.instructions}`,
+            "response metadata"
+          );
+        } else if (chunk.type === "sources") {
+          addResponse(
+            `Sources found: ${JSON.stringify(chunk.sources, null, 2)}`,
+            "response sources"
+          );
+        } else if (
+          chunk.choices &&
+          chunk.choices[0] &&
+          chunk.choices[0].delta &&
+          chunk.choices[0].delta.content
+        ) {
+          // Append content chunks to build the response
+          const content = chunk.choices[0].delta.content;
+          appendToLastResponse(content);
+        } else if (chunk.error) {
+          addResponse(`Error: ${chunk.error.message}`, "response error");
+        } else {
+          addResponse(`Chunk: ${JSON.stringify(chunk)}`, "response");
+        }
+      }
+
+      function appendToLastResponse(content) {
+        const outputEl = document.getElementById("output");
+        let lastResponse = outputEl.querySelector(".response:last-child");
+
+        if (
+          !lastResponse ||
+          lastResponse.classList.contains("metadata") ||
+          lastResponse.classList.contains("sources")
+        ) {
+          lastResponse = document.createElement("div");
+          lastResponse.className = "response";
+          lastResponse.textContent = "";
+          outputEl.appendChild(lastResponse);
+        }
+
+        lastResponse.textContent += content;
+        outputEl.scrollTop = outputEl.scrollHeight;
+      }
+
+      async function handleNormalRequest(payload) {
+        setStatus("Waiting for response...", "streaming");
+
+        const response = await fetch(`${API_BASE}/ask-file`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        setStatus("Response received", "completed");
+        addResponse(`Normalized Text:\n${data.normalized_text}`, "response");
+        addResponse(
+          `Sources:\n${JSON.stringify(data.sources, null, 2)}`,
+          "response sources"
+        );
+        addResponse(`Instructions:\n${data.instructions}`, "response metadata");
+      }
+    </script>
+  </body>
+</html>
+
+
+File: .github\instructions\mcp_instructions.instructions.md
+--------------------------------------------------
+Content of .github\instructions\mcp_instructions.instructions.md:
+\*\*All work will eventually connect to an Model Context Protocol (MCP) server. Keep that in mind.
+
+Build all test scripts in the "test_scripts" directory
+Build all auth scripts in the "auth" directory
+Build all project scripts in the "project" directory
+Build all utility/helper scripts in the "utils" directory
+Build all optimization scripts in the ".summary" directory
+
+AUTH EXAMPLE FOR VANTAGEPOINT (payload will need to be encoded in the request):
+
+```python
+# Example of how to authenticate with VantagePoint API
+import httpx
+import json
+
+url = "https://az-webui-01.global.gsp/api/v1/auths/api_key"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer TOKEN_HERE",
+}
+
+payload = {}  # Empty dict → same as sending `{}` JSON
+
+with httpx.Client() as client:
+    response = client.post(url, headers=headers, json=payload)
+
+print(response.text)
+
+
+```
+
+
+File: .pytest_cache\README.md
+--------------------------------------------------
+Content of .pytest_cache\README.md:
+# pytest cache directory #
+
+This directory contains data from the pytest's cache plugin,
+which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
+
+**Do not** commit this to version control.
+
+See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+
+
+File: auth\graph_auth.py
+--------------------------------------------------
+Content of auth\graph_auth.py:
+# Microsoft Graph Authentication Script
+import httpx
+import logging
+import os
+from typing import Optional
+from dotenv import load_dotenv
+from utils.client_registry import client_registry
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+async def get_graph_token_async(client: Optional[httpx.AsyncClient] = None) -> Optional[str]:
+    """
+    Acquire Microsoft Graph token for client credentials flow.
+    
+    Args:
+        client: Optional shared AsyncClient to use, otherwise gets one from registry
+        
+    Returns:
+        Access token or None if acquisition fails.
+    """
+    GRAPH_TOKEN_URL = os.environ.get("GRAPH_TOKEN_URL")
+    GRAPH_CLIENT_ID = os.environ.get("GRAPH_CLIENT_ID")
+    GRAPH_SECRET = os.environ.get("GRAPH_SECRET")
+    
+    if not all([GRAPH_TOKEN_URL, GRAPH_CLIENT_ID, GRAPH_SECRET]):
+        logger.error("GRAPH_* env vars missing; cannot acquire token")
+        return None
+
+    # Use provided client or get one from registry
+    if client is None:
+        client = client_registry.get_client(GRAPH_TOKEN_URL, timeout=30)
+
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": GRAPH_CLIENT_ID,
+        "client_secret": GRAPH_SECRET,
+        # Power Automate resource (Flow) – confirm in your tenant; this often works:
+        "scope": "https://service.flow.microsoft.com//.default",
+    }
+
+    try:
+        r = await client.post(
+            GRAPH_TOKEN_URL,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        r.raise_for_status()
+        token = r.json().get("access_token")
+        if not token:
+            logger.error("No access_token in token response: %s", r.text[:400])
+        return token
+    except httpx.HTTPError as e:
+        logger.error("Failed to obtain token: %s", e)
+        return None
+
+
+File: auth\power_automate_auth.py
+--------------------------------------------------
+Content of auth\power_automate_auth.py:
+# Power Automate Workflow Authentication and Communication Script
+import httpx
+import logging
+import json
+import os
+from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+from utils.client_registry import client_registry
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+async def call_pa_workflow_async(
+    payload: Dict[str, Any], 
+    token: Optional[str], 
+    client: Optional[httpx.AsyncClient] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Call Power Automate workflow with optional authentication token.
+    
+    Args:
+        payload: JSON payload to send to the workflow
+        token: Optional bearer token for authentication
+        client: Optional shared AsyncClient to use, otherwise gets one from registry
+        
+    Returns:
+        Response JSON dict or None if call fails
+    """
+    logger.debug(f"call_pa_workflow_async payload: {json.dumps(payload, indent=2)} token: {'set' if token else 'unset'}")
+    
+    PA_URL = os.environ.get("PA_URL")
+    if not PA_URL:
+        logger.error("PA_URL not set")
+        return None
+
+    # Use provided client or get one from registry
+    if client is None:
+        client = client_registry.get_client(PA_URL)
+
+    headers = {"Content-Type": "application/json"}
+    # If your Flow is protected by Entra ID / custom connector, include the bearer:
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        # r = await ac.post(PA_URL, json=payload, headers=headers)
+        r = await client.post(PA_URL, json=payload)
+        if r.status_code == 200:
+            return r.json()
+        logger.error("PA workflow call failed %s: %s", r.status_code, r.text[:400])
+        return None
+    except httpx.HTTPError as e:
+        logger.error("PA workflow call error: %s", e)
+        return None
+
+
+File: auth\service_auth.py
+--------------------------------------------------
+Content of auth\service_auth.py:
+# Service Authentication Script
+
+import httpx
+import logging
+import os
+from fastapi import HTTPException
+from dotenv import load_dotenv
+
+from utils.environment import get_openai_api_key
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+OWUI_KEY = get_openai_api_key()
+
+
+def extract_single_user_email(user_response: dict) -> str:
+    """
+    Ensure the user response contains exactly one user and extract the email.
+    Raises HTTPException if not found or ambiguous.
+    """
+    logger.debug("Extracting user email from response: %s", user_response)
+    users = user_response.get("users", [])
+    logger.debug("User count in array: %s", len(users))
+    if not user_response or len(users) != 1:
+        raise HTTPException(status_code=502, detail="Could not uniquely resolve current user from GIA/OWUI")
+    if not users[0].get("email"):
+        raise HTTPException(status_code=502, detail="No email found for current user")
+    return users[0]["email"]
+
+
+async def get_cached_service_token(client: httpx.AsyncClient, jwt: str = None) -> str:
+    """
+    Return the static OWUI_KEY from environment for Open WebUI authentication.
+    """
+    key = os.environ.get("OWUI_KEY")
+    if not key:
+        raise HTTPException(status_code=502, detail="OWUI_KEY environment variable is not set.")
+    return key
+
+
+
+    # No longer needed: token exchange logic removed
+
+
+
+async def clear_token_cache():
+    """
+    No-op: Token cache is not used with static OWUI_KEY.
+    """
+    logger.debug("clear_token_cache called, but no cache is used with OWUI_KEY.")
+
+
+async def make_authenticated_request(
+    client: httpx.AsyncClient,
+    method: str = "GET",
+    endpoint: str = "",
+    **kwargs
+) -> httpx.Response:
+    """
+    Make an authenticated request using the static OWUI_KEY as API key.
+    """
+    if client is None:
+        raise RuntimeError("HTTP client not initialized")
+
+    # Use OWUI_KEY for Authorization
+    token = await get_cached_service_token(client)
+    headers = kwargs.get("headers", {})
+    headers["Authorization"] = f"Bearer {token}"
+    kwargs["headers"] = headers
+
+    response = await client.request(method, endpoint, **kwargs)
+    response.raise_for_status()
+    return response
+
+
+
+# Legacy function for backward compatibility
+async def get_service_token(client: httpx.AsyncClient = None, jwt: str = None) -> str:
+    """
+    Legacy function for backward compatibility.
+    Use get_cached_service_token instead.
+    """
+    return await get_cached_service_token(client)
+
+
+async def get_current_user_email(user: str, client: httpx.AsyncClient, jwt: str = None) -> dict:
+    """
+    Fetch the authenticated user's email from OWUI /api/v1/auths/.
+    Uses static OWUI_KEY for authentication.
+    """
+    logger.debug("Client is None: %s", client)
+    logger.debug("Fetching current user email for user: %s", user)
+    logger.debug("Using OWUI_KEY: %s", OWUI_KEY[-7:] if OWUI_KEY else "Not Set")
+    try:
+        r = await make_authenticated_request(
+            client,
+            "GET",
+            f"/api/v1/users/?page=1&query={user}&order_by=created_at&direction=asc",
+            headers={"Accept": "application/json", "Authorization": f"Bearer {OWUI_KEY}"}
+        )
+        payload = r.json()
+    except httpx.HTTPError as e:
+        logger.error("Failed to fetch /api/v1/users/: %s", e)
+        raise HTTPException(status_code=502, detail=f"GIA /api/v1/users/ error: {e}")
+
+    if not payload:
+        raise HTTPException(status_code=502, detail="No payload in /api/v1/users/ response")
+    return payload
+
+
+File: auth\vp_auth.py
+--------------------------------------------------
+Content of auth\vp_auth.py:
+# Vantagepoint Authentication Script
+import httpx
+from utils.client_registry import client_registry
+from urllib.parse import urlencode
+import os
+from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+VP_BASE_URL = os.environ.get("VP_BASE_URL")
+VP_USERNAME = os.environ.get("VP_USERNAME")
+VP_PASSWORD = os.environ.get("VP_PASSWORD")
+VP_DATABASE = os.environ.get("VP_DATABASE")
+VP_CLIENT_ID = os.environ.get("VP_CLIENT_ID")
+VP_CLIENT_SECRET = os.environ.get("VP_CLIENT_SECRET")
+
+async def get_vantagepoint_token(client: Optional[httpx.AsyncClient] = None):
+    """
+    Authenticate with Vantagepoint API and return the access token response.
+    
+    Args:
+        client: Optional shared AsyncClient to use, otherwise gets one from registry
+    """
+    # Use provided client or get one from registry
+    if client is None:
+        client = client_registry.get_client(VP_BASE_URL)
+    
+    url = f"{VP_BASE_URL}/api/token"
+    payload_dict = {
+        "Username": VP_USERNAME,
+        "Password": VP_PASSWORD,
+        "grant_type": "password",
+        "Integrated": "N",
+        "database": VP_DATABASE,
+        "Client_Id": VP_CLIENT_ID,
+        "client_secret": VP_CLIENT_SECRET,
+    }
+    payload = urlencode(payload_dict)
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    response = await client.post(url, headers=headers, data=payload)
+    response.raise_for_status()
+    return response.json()
+
+if __name__ == "__main__":
+    import asyncio
+    token_response = asyncio.run(get_vantagepoint_token())
+    print(token_response)
+
+
+File: auth\__init__.py
+--------------------------------------------------
+Content of auth\__init__.py:
+# Authentication Module - Central import for all auth functions
+"""
+Authentication module providing centralized access to all authentication functions.
+Import this module to access authentication functionality across the application.
+"""
+
+from .service_auth import (
+    extract_single_user_email,
+    get_service_token, 
+    get_cached_service_token, 
+    get_current_user_email, 
+    make_authenticated_request,
+    clear_token_cache
+)
+from .graph_auth import get_graph_token_async
+from .power_automate_auth import call_pa_workflow_async
+from .vp_auth import get_vantagepoint_token
+
+__all__ = [
+    "get_service_token",
+    "get_cached_service_token", 
+    "extract_single_user_email",
+    "get_current_user_email",
+    "make_authenticated_request",
+    "clear_token_cache",
+    "get_graph_token_async",
+    "call_pa_workflow_async",
+    "get_vantagepoint_token",
+]
+
+
+File: debug\last_owui_resp.json
+--------------------------------------------------
+Content of debug\last_owui_resp.json:
+{
+  "sources": [
+    {
+      "source": {
+        "id": "041f9216-9099-4369-ab67-2adc418ae981",
+        "type": "file"
+      },
+      "document": [
+        "### **Safety and Security**\n\n- [Safety Standards and Expectations](#page-157-0)\n- [Security Cards](#page-160-0)\n- [Self-Defense](#page-161-0)\n\n### **[State Appendix](https://gspnet4.sharepoint.com/:b:/r/sites/HR/Shared%20Documents/State-Appendix.pdf?csf=1&web=1&e=sxG3ut)**\n\n## <span id=\"page-3-0\"></span>Introduction: Why We Have a Handbook\n\nEffective Date: 11/15/22 – Supersedes Date: 5/16/17\n\nThe Gresham Smith Employee Handbook addresses many of the policies that affect your daily work life and is to be used as a tool and reference for policies that generally apply to all employees. We recognize that some states where we do business have unique laws that are only applicable to individuals employed in that state. You can access the State Appendix [here.](https://gspnet4.sharepoint.com/:b:/r/sites/HR/Shared%20Documents/State-Appendix.pdf?csf=1&web=1&e=sxG3ut)",
+        "A one-time reimbursement is available for completed self-defense courses.\n\nTo further support the firm's culture of safety, employees are encouraged to research and enroll in selfdefense training. In alignment with safe practices, the goals are to enhance situational awareness, build confidence, develop tactics to ward off danger in any environment, and improve the ability to protect oneself and others.\n\nGresham Smith will provide reimbursement of up to $100 (gross) toward the employee's successful completion of a local or web-based self-defense personal safety course. Employees are eligible to receive reimbursement for self-defense courses annually.",
+        "Each employee will be assigned a photo identification security card when hired. For the protection of all employees, this card must always be visible to others and be worn while on Gresham Smith premises. A lanyard will be provided free of charge, if you prefer this option. The security card is designed to ensure that unauthorized individuals without a card cannot access our facilities without the required employee escort.\n\n## <span id=\"page-161-0\"></span>Safety: Self-Defense\n\nEffective Date: 01/01/2024 – Supersedes: N/A\n\n### **Key Takeaways**\n\nThe firm encourages employees to seek opportunities to prioritize personal safety and well-being through self-defense courses.\n\nA one-time reimbursement is available for completed self-defense courses."
+      ],
+      "metadata": [
+        {
+          "created_by": "813dbef9-76d6-4544-8940-6875b2d5a92c",
+          "embedding_config": "{'engine': '', 'model': 'sentence-transformers/all-MiniLM-L6-v2'}",
+          "file_id": "041f9216-9099-4369-ab67-2adc418ae981",
+          "hash": "ec547a4cccc528f080f648e0b05897696380236ba8235b396d06420268857da2",
+          "name": "employee-handbook.md",
+          "source": "employee-handbook.md",
+          "start_index": 3640
+        },
+        {
+          "created_by": "813dbef9-76d6-4544-8940-6875b2d5a92c",
+          "embedding_config": "{'engine': '', 'model': 'sentence-transformers/all-MiniLM-L6-v2'}",
+          "file_id": "041f9216-9099-4369-ab67-2adc418ae981",
+          "hash": "ec547a4cccc528f080f648e0b05897696380236ba8235b396d06420268857da2",
+          "name": "employee-handbook.md",
+          "source": "employee-handbook.md",
+          "start_index": 313057
+        },
+        {
+          "created_by": "813dbef9-76d6-4544-8940-6875b2d5a92c",
+          "embedding_config": "{'engine': '', 'model': 'sentence-transformers/all-MiniLM-L6-v2'}",
+          "file_id": "041f9216-9099-4369-ab67-2adc418ae981",
+          "hash": "ec547a4cccc528f080f648e0b05897696380236ba8235b396d06420268857da2",
+          "name": "employee-handbook.md",
+          "source": "employee-handbook.md",
+          "start_index": 312378
+        }
+      ],
+      "distances": [
+        0.8348861634731293,
+        0.7783512601572529,
+        0.7419390747026089
+      ]
+    }
+  ],
+  "id": "chatcmpl-CCSMFB80WvUMUyOa1xU5yLWn4PZuq",
+  "object": "chat.completion",
+  "created": 1757084979,
+  "model": "gpt-5-2025-08-07",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Here’s our self-defense policy:\n\n- The firm encourages employees to take self-defense courses to prioritize personal safety and well-being, with goals such as enhancing situational awareness, building confidence, developing tactics to ward off danger, and improving the ability to protect oneself and others [1].\n- Reimbursement: Up to $100 (gross) upon successful completion of a local or web-based self-defense/personal safety course. Employees are eligible for one reimbursement per year [1].\n- Effective date: 01/01/2024 [1].\n\nWould you like guidance on how to submit the reimbursement?",
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 886,
+    "completion_tokens": 896,
+    "total_tokens": 1782,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 768,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "service_tier": "default",
+  "system_fingerprint": null
+}
+
+File: test_scripts\simple_test_service_token.py
+--------------------------------------------------
+Content of test_scripts\simple_test_service_token.py:
+"""
+Simple test script for the get_service_token function.
+This is a basic test to verify the service token functionality.
+"""
+import sys
+import os
+import asyncio
+import httpx
+from dotenv import load_dotenv
+
+from auth import get_service_token
+
+# Add the parent directory to the path so we can import from main
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+load_dotenv()
+
+async def test_service_token():
+    """Simple test for get_service_token function"""
+    from main import OWUI
+    
+    print("Testing get_service_token()...")
+    print(f"GIA URL: {OWUI}")
+    print(f"OWUI_KEY available: {'Yes' if os.environ.get('OWUI_KEY') else 'No'}")
+    if not os.environ.get('OWUI_KEY'):
+        print("ERROR: OWUI_KEY environment variable is required!")
+        return
+    
+    # Initialize HTTP client
+    client = httpx.AsyncClient(
+        base_url=OWUI,
+        headers={},
+        timeout=60,
+    )
+    
+    try:
+        service_token = await get_service_token(client)
+        if service_token:
+            print(f"✅ Success! Service token obtained")
+            print(f"Token length: {len(service_token)}")
+            print(f"Token preview: {service_token[:30]}...")
+            # Test the token with a simple API call
+            headers = {"Accept": "application/json", "Authorization": f"Bearer {service_token}"}
+            response = await client.get("/api/models", headers=headers)
+            print(f"API test status: {response.status_code}")
+            if response.status_code == 200:
+                print("✅ Service token works with API!")
+                print(f"Response data: {response.json()}")
+            else:
+                print(f"⚠️  API call returned: {response.status_code}")
+        else:
+            print("❌ Failed to obtain service token")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        await client.aclose()
+
+
+if __name__ == "__main__":
+    asyncio.run(test_service_token())
+
+
+File: test_scripts\test_api_with_caching.py
+--------------------------------------------------
+Content of test_scripts\test_api_with_caching.py:
+#!/usr/bin/env python3
+"""
+Test script to verify the refactored endpoints still work with token caching.
+"""
+
+import sys
+import os
+import asyncio
+import httpx
+from dotenv import load_dotenv
+
+# Add the parent directory to the path so we can import from main
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from utils.environment import get_owui_url, get_owui_jwt, get_hardcoded_file_id
+from utils.http_client import ensure_model, post_chat_completions
+
+load_dotenv()
+
+async def test_ensure_model():
+    """Test the ensure_model function with cached tokens"""
+    print("🧪 Testing ensure_model with token caching...")
+    
+    owui_url = get_owui_url()
+    jwt = get_owui_jwt()
+    
+    if not owui_url or not jwt:
+        print("❌ Missing required environment variables")
+        return False
+    
+    async with httpx.AsyncClient(base_url=owui_url) as client:
+        try:
+            model_alias = {"gpt-5": "gpt-5"}
+            model_id = await ensure_model(client, "gpt-5", jwt, model_alias)
+            print(f"✅ Model resolved: {model_id}")
+            return True
+        except Exception as e:
+            print(f"❌ ensure_model failed: {e}")
+            return False
+
+async def test_chat_completions():
+    """Test the chat completions endpoint with cached tokens"""
+    print("\n🧪 Testing chat completions with token caching...")
+    
+    owui_url = get_owui_url()
+    jwt = get_owui_jwt()
+    file_id = get_hardcoded_file_id()
+    
+    if not all([owui_url, jwt, file_id]):
+        print("❌ Missing required environment variables")
+        return False
+    
+    async with httpx.AsyncClient(base_url=owui_url) as client:
+        try:
+            # First ensure we have a valid model
+            model_alias = {"gpt-5": "gpt-5"}
+            model_id = await ensure_model(client, "gpt-5", jwt, model_alias)
+            
+            # Test chat completions
+            payload = {
+                "model": model_id,
+                "messages": [{"role": "user", "content": "What is the PTO policy?"}],
+                "files": [{"id": file_id, "type": "file", "status": "processed"}],
+            }
+            
+            response = await post_chat_completions(client, payload, jwt)
+            print(f"✅ Chat completion successful, response keys: {list(response.keys()) if isinstance(response, dict) else type(response)}")
+            return True
+        except Exception as e:
+            print(f"❌ chat completions failed: {e}")
+            return False
+
+if __name__ == "__main__":
+    async def main():
+        print("🚀 Starting API Endpoint Tests with Token Caching\n")
+        
+        try:
+            success1 = await test_ensure_model()
+            success2 = await test_chat_completions()
+            
+            if success1 and success2:
+                print("\n✅ All API tests passed with token caching!")
+            else:
+                print("\n❌ Some API tests failed")
+                sys.exit(1)
+                
+        except Exception as e:
+            print(f"\n❌ Test failed with error: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+
+    asyncio.run(main())
+
+
+File: test_scripts\test_client_registry.py
+--------------------------------------------------
+Content of test_scripts\test_client_registry.py:
+#!/usr/bin/env python3
+"""
+Test script to verify client registry functionality and shared client usage.
+This script tests that clients are properly shared and reused across different modules.
+"""
+
+import sys
+import os
+import asyncio
+import httpx
+from dotenv import load_dotenv
+
+# Add the parent directory to the path so we can import from main
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from utils.client_registry import client_registry
+from utils.environment import get_owui_url, get_vp_base_url
+
+load_dotenv()
+
+async def test_client_registry():
+    """Test that the client registry properly creates and shares clients."""
+    print("Testing Client Registry...")
+    
+    # Test 1: Get clients for different hosts
+    owui_url = get_owui_url()
+    vp_url = get_vp_base_url()
+    
+    print(f"Creating client for OWUI: {owui_url}")
+    client1 = client_registry.get_client(owui_url)
+    
+    print(f"Creating client for VP: {vp_url}")
+    client2 = client_registry.get_client(vp_url)
+    
+    # Test 2: Get the same client again - should be shared
+    print("Getting OWUI client again (should be shared)...")
+    client1_again = client_registry.get_client(owui_url)
+    
+    # Test 3: Verify they're the same instance
+    if client1 is client1_again:
+        print("✅ Client sharing works - same instance returned")
+    else:
+        print("❌ Client sharing failed - different instances")
+    
+    # Test 4: Verify different hosts get different clients
+    if client1 is not client2:
+        print("✅ Different hosts get different clients")
+    else:
+        print("❌ Different hosts should get different clients")
+    
+    # Test 5: Show the registry contents
+    print(f"Registry contains {len(client_registry._clients)} clients")
+    for host in client_registry._clients.keys():
+        print(f"  - {host}")
+    
+    print("Test completed successfully!")
+    return True
+
+async def test_auth_module_integration():
+    """Test that auth modules work with shared clients."""
+    print("\nTesting Auth Module Integration...")
+    
+    try:
+        from auth import get_graph_token_async, get_vantagepoint_token, call_pa_workflow_async
+        
+        # These should not fail even without credentials (will fail gracefully)
+        print("✅ Auth modules imported successfully")
+        
+        # Test that functions accept client parameters
+        import inspect
+        
+        # Check get_graph_token_async signature
+        sig = inspect.signature(get_graph_token_async)
+        if 'client' in sig.parameters:
+            print("✅ get_graph_token_async accepts client parameter")
+        else:
+            print("❌ get_graph_token_async missing client parameter")
+        
+        # Check get_vantagepoint_token signature
+        sig = inspect.signature(get_vantagepoint_token)
+        if 'client' in sig.parameters:
+            print("✅ get_vantagepoint_token accepts client parameter")
+        else:
+            print("❌ get_vantagepoint_token missing client parameter")
+        
+        # Check call_pa_workflow_async signature
+        sig = inspect.signature(call_pa_workflow_async)
+        if 'client' in sig.parameters:
+            print("✅ call_pa_workflow_async accepts client parameter")
+        else:
+            print("❌ call_pa_workflow_async missing client parameter")
+        
+        return True
+        
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        return False
+
+async def test_cleanup():
+    """Test client cleanup functionality."""
+    print("\nTesting Client Cleanup...")
+    
+    # Create some clients
+    client1 = client_registry.get_client("https://example1.com")
+    client2 = client_registry.get_client("https://example2.com")
+    
+    print(f"Created {len(client_registry._clients)} clients")
+    
+    # Close all clients
+    await client_registry.close_all()
+    
+    print(f"After cleanup: {len(client_registry._clients)} clients")
+    
+    if len(client_registry._clients) == 0:
+        print("✅ Client cleanup works correctly")
+    else:
+        print("❌ Client cleanup failed")
+
+if __name__ == "__main__":
+    async def main():
+        success = True
+        success &= await test_client_registry()
+        success &= await test_auth_module_integration()
+        await test_cleanup()
+        
+        if success:
+            print("\n🎉 All tests passed!")
+        else:
+            print("\n❌ Some tests failed")
+            sys.exit(1)
+    
+    asyncio.run(main())
+
+
+File: test_scripts\test_current_user_email.py
+--------------------------------------------------
+Content of test_scripts\test_current_user_email.py:
+"""
+Test script for the get_current_user_email function.
+This script tests the live get_current_user_email function to identify and fix issues.
+"""
+import sys
+import os
+import asyncio
+import httpx
+from dotenv import load_dotenv
+
+# Add the parent directory to the path so we can import from main
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Load environment variables
+load_dotenv()
+
+async def test_get_current_user_email():
+    """Test the get_current_user_email function directly"""
+    try:
+        # Import the function and required variables
+        from main import get_current_user_email, get_service_token, OWUI, JWT
+        
+        print("=" * 60)
+        print("TESTING get_current_user_email() FUNCTION")
+        print("=" * 60)
+        
+        # Check environment setup
+        print(f"GIA_URL (OWUI): {OWUI}")
+        print(f"JWT available: {'Yes' if JWT else 'No'}")
+        print()
+        
+        if not JWT:
+            print("❌ ERROR: OWUI_JWT environment variable is not set!")
+            return False
+        
+        # Initialize the HTTP client (mimicking the startup event)
+        print("🔄 Initializing HTTP client...")
+        import main
+        main.client = httpx.AsyncClient(
+            base_url=OWUI,
+            headers={"Authorization": f"Bearer {JWT}"},
+            timeout=60,
+        )
+        print("✅ HTTP client initialized")
+        
+        print()
+        print("🔄 First, getting service token...")
+        
+        # Get service token first
+        service_token = await get_service_token()
+        
+        if service_token:
+            print("✅ Service token obtained")
+            print(f"Service token preview: {service_token[:20] + '...' if len(service_token) > 20 else service_token}")
+            
+            print()
+            print("🔄 Testing get_current_user_email() with service token...")
+            
+            # Test with service token
+            try:
+                email = await get_current_user_email(service_token)
+                print(f"✅ SUCCESS: Email obtained with service token: {email}")
+            except Exception as e:
+                print(f"❌ FAILED with service token: {e}")
+                print(f"Exception type: {type(e).__name__}")
+                import traceback
+                traceback.print_exc()
+            
+            print()
+            print("🔄 Testing get_current_user_email() with JWT...")
+            
+            # Test with JWT
+            try:
+                email = await get_current_user_email(JWT)
+                print(f"✅ SUCCESS: Email obtained with JWT: {email}")
+                return True
+            except Exception as e:
+                print(f"❌ FAILED with JWT: {e}")
+                print(f"Exception type: {type(e).__name__}")
+                import traceback
+                traceback.print_exc()
+                return False
+        else:
+            print("❌ Could not obtain service token")
+            return False
+            
+    except Exception as e:
+        print(f"❌ ERROR during testing: {str(e)}")
+        print(f"Exception type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        return False
+    
+    finally:
+        # Clean up the client if we created it
+        import main
+        if hasattr(main, 'client') and main.client:
+            await main.client.aclose()
+            print("🧹 HTTP client closed")
+
+
+if __name__ == "__main__":
+    # Run the async main function
+    result = asyncio.run(test_get_current_user_email())
+    
+    # Exit with appropriate code
+    sys.exit(0 if result else 1)
+
+
+File: test_scripts\test_graph_and_pa.py
+--------------------------------------------------
+Content of test_scripts\test_graph_and_pa.py:
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import asyncio
+from auth import get_graph_token_async, call_pa_workflow_async
+
+async def main():
+    email = "smiley.baltz@greshamsmith.com"
+    print("Testing get_graph_token_async()...")
+    token = await get_graph_token_async()
+    print(f"Token acquired: {bool(token)}")
+    if not token:
+        print("Failed to obtain token. Aborting workflow call.")
+        return
+    print(f"Testing call_pa_workflow_async() with email: {email}")
+    response = await call_pa_workflow_async({"CompanyEmailAddress": email}, token)
+    print(f"Workflow response keys: {list(response.keys()) if isinstance(response, dict) else type(response)}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+File: test_scripts\test_graph_token.py
+--------------------------------------------------
+Content of test_scripts\test_graph_token.py:
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import asyncio
+from auth import get_graph_token_async
+
+async def main():
+    token = await get_graph_token_async()
+    if token and token.get("access_token"):
+        print(f"Access token (truncated): {token['access_token'][:40]}...")
+    else:
+        print("Failed to obtain token.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+File: test_scripts\test_integration.py
+--------------------------------------------------
+Content of test_scripts\test_integration.py:
+#!/usr/bin/env python3
+"""
+Integration test to verify that the refactored modules work together correctly.
+"""
+
+import sys
+import os
+import asyncio
+from dotenv import load_dotenv
+
+# Add the parent directory to the path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+load_dotenv()
+
+async def test_integration():
+    """Test that all modules work together with shared clients."""
+    print("Running Integration Test...")
+    
+    try:
+        # Import all the main components
+        from main import app
+        from utils.client_registry import client_registry
+        from utils.environment import get_owui_url, get_vp_base_url
+        from auth import get_graph_token_async, get_vantagepoint_token, call_pa_workflow_async
+        from utils.vantagepoint import get_vacation_days
+        
+        print("✅ All imports successful")
+        
+        # Test client registry integration
+        owui_url = get_owui_url()
+        vp_url = get_vp_base_url()
+        
+        # Get clients from registry
+        owui_client = client_registry.get_client(owui_url)
+        vp_client = client_registry.get_client(vp_url)
+        
+        print(f"✅ Created shared clients for {owui_url} and {vp_url}")
+        
+        # Test that auth functions can be called (they'll fail gracefully without real tokens)
+        print("Testing auth functions (expecting graceful failures)...")
+        
+        # These will fail due to missing/invalid credentials, but should not crash
+        try:
+            await get_graph_token_async(client=owui_client)
+        except Exception as e:
+            print(f"  Graph auth failed as expected: {type(e).__name__}")
+        
+        try:
+            await get_vantagepoint_token(client=vp_client)
+        except Exception as e:
+            print(f"  VP auth failed as expected: {type(e).__name__}")
+        
+        # Test cleanup
+        await client_registry.close_all()
+        print("✅ Client cleanup successful")
+        
+        print("\n🎉 Integration test passed!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Integration test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+if __name__ == "__main__":
+    success = asyncio.run(test_integration())
+    if not success:
+        sys.exit(1)
+
+
+File: test_scripts\test_response_processor_optimization.py
+--------------------------------------------------
+Content of test_scripts\test_response_processor_optimization.py:
+#!/usr/bin/env python3
+"""
+Test script to verify the optimized response_processor functions work correctly.
+"""
+
+import sys
+import os
+import asyncio
+from typing import Any, Dict, List
+
+# Add the parent directory to the path so we can import from utils
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from utils.response_processor import (
+    normalize_owui_response,
+    get_sources_from_owui
+)
+
+
+def test_normalize_with_done_signal():
+    """Test that the optimizer stops processing when it encounters [DONE]"""
+    print("Testing early termination with [DONE] signal...")
+    
+    # Simulate a stream with [DONE] signal in the middle
+    test_data = {
+        "stream": [
+            {"sources": [{"page": 1, "text": "Test source"}]},
+            {
+                "choices": [{
+                    "delta": {"content": "Hello "}
+                }]
+            },
+            {
+                "choices": [{
+                    "delta": {"content": "world"}
+                }]
+            },
+            "[DONE]",  # This should stop processing
+            {
+                "choices": [{
+                    "delta": {"content": " this should not appear"}
+                }]
+            }
+        ]
+    }
+    
+    text, sources = normalize_owui_response(test_data)
+    print(f"Result text: '{text}'")
+    print(f"Sources: {sources}")
+    
+    # Should only contain "Hello world", not the text after [DONE]
+    assert text == "Hello world", f"Expected 'Hello world', got '{text}'"
+    assert len(sources) == 1, f"Expected 1 source, got {len(sources)}"
+    print("✓ Early termination test passed")
+
+
+def test_normalize_with_finish_reason():
+    """Test that the optimizer stops processing when it encounters finish_reason: stop"""
+    print("\nTesting early termination with finish_reason...")
+    
+    test_data = {
+        "stream": [
+            {"sources": [{"page": 2, "text": "Another source"}]},
+            {
+                "choices": [{
+                    "delta": {"content": "Complete "}
+                }]
+            },
+            {
+                "choices": [{
+                    "delta": {"content": "response"},
+                    "finish_reason": "stop"
+                }]
+            },
+            {
+                "choices": [{
+                    "delta": {"content": " extra content"}
+                }]
+            }
+        ]
+    }
+    
+    text, sources = normalize_owui_response(test_data)
+    print(f"Result text: '{text}'")
+    print(f"Sources: {sources}")
+    
+    # Should only contain "Complete response", not the extra content
+    assert text == "Complete response", f"Expected 'Complete response', got '{text}'"
+    assert len(sources) == 1, f"Expected 1 source, got {len(sources)}"
+    print("✓ Finish reason test passed")
+
+
+def test_ndjson_with_done():
+    """Test NDJSON processing with [DONE] signal"""
+    print("\nTesting NDJSON early termination...")
+    
+    test_data = {
+        "ndjson": [
+            {
+                "choices": [{
+                    "delta": {"content": "NDJSON "}
+                }]
+            },
+            {
+                "choices": [{
+                    "delta": {"content": "content"}
+                }]
+            },
+            "[DONE]",
+            {
+                "choices": [{
+                    "delta": {"content": " should not appear"}
+                }]
+            }
+        ]
+    }
+    
+    text, sources = normalize_owui_response(test_data)
+    print(f"Result text: '{text}'")
+    
+    assert text == "NDJSON content", f"Expected 'NDJSON content', got '{text}'"
+    print("✓ NDJSON early termination test passed")
+
+
+def test_get_sources_utility():
+    """Test the new get_sources_from_owui utility function"""
+    print("\nTesting get_sources_from_owui utility...")
+    
+    test_data = {
+        "stream": [
+            {"sources": [{"page": 5, "text": "Quick source"}]},
+            {"choices": [{"delta": {"content": "Some content"}}]}
+        ]
+    }
+    
+    sources = get_sources_from_owui(test_data)
+    print(f"Extracted sources: {sources}")
+    
+    assert len(sources) == 1, f"Expected 1 source, got {len(sources)}"
+    assert sources[0]["page"] == 5, f"Expected page 5, got {sources[0]['page']}"
+    print("✓ Sources utility test passed")
+
+
+
+
+def test_performance_comparison():
+    """Create a large dataset to verify performance characteristics"""
+    print("\nTesting performance with large dataset...")
+    
+    # Create a large stream with many chunks
+    large_stream = {"stream": [{"sources": [{"page": 1, "text": "Large test"}]}]}
+    
+    # Add many content chunks
+    for i in range(1000):
+        large_stream["stream"].append({
+            "choices": [{
+                "delta": {"content": f"chunk{i} "}
+            }]
+        })
+    
+    # Add [DONE] signal in the middle
+    large_stream["stream"].append("[DONE]")
+    
+    # Add more chunks that should be ignored
+    for i in range(100):
+        large_stream["stream"].append({
+            "choices": [{
+                "delta": {"content": f"ignored{i} "}
+            }]
+        })
+    
+    import time
+    start_time = time.time()
+    text, sources = normalize_owui_response(large_stream)
+    end_time = time.time()
+    
+    print(f"Processing time: {end_time - start_time:.4f} seconds")
+    print(f"Text length: {len(text)} characters")
+    print(f"Text ends with: '{text[-20:]}'")
+    
+    # Should not contain any "ignored" content
+    assert "ignored" not in text, "Should not contain content after [DONE]"
+    # Should contain exactly 1000 chunks
+    chunk_count = text.count("chunk")
+    print(f"Chunk count: {chunk_count}")
+    assert chunk_count == 1000, f"Expected 1000 chunks, got {chunk_count}"
+    print("✓ Performance test passed")
+
+
+async def main():
+    """Run all tests"""
+    print("Running optimized response_processor tests...\n")
+    
+    test_normalize_with_done_signal()
+    test_normalize_with_finish_reason()
+    test_ndjson_with_done()
+    test_get_sources_utility()
+    test_performance_comparison()
+    
+    print("\n🎉 All tests passed! The response processor optimization is working correctly.")
+    print("\nOptimizations implemented:")
+    print("✓ Early termination on [DONE] signal")
+    print("✓ Early termination on finish_reason: stop")
+    print("✓ Efficient list-based text concatenation (already existed)")
+    print("✓ New streaming variant for true streaming scenarios")
+    print("✓ Quick sources extraction utility")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+File: test_scripts\test_service_token.py
+--------------------------------------------------
+Content of test_scripts\test_service_token.py:
+"""
+Test script for the get_service_token function.
+This script tests the live get_service_token function to ensure it's returning actual data from the app instance.
+"""
+import sys
+import os
+import asyncio
+import httpx
+from dotenv import load_dotenv
+
+# Add the parent directory to the path so we can import from main
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Load environment variables
+load_dotenv()
+
+async def test_get_service_token():
+    """Test the get_service_token function directly"""
+    try:
+        # Import the function and required variables
+        from main import get_service_token, OWUI, JWT
+        
+        print("=" * 60)
+        print("TESTING get_service_token() FUNCTION")
+        print("=" * 60)
+        
+        # Check environment setup
+        print(f"GIA_URL (OWUI): {OWUI}")
+        print(f"JWT available: {'Yes' if JWT else 'No'}")
+        print(f"JWT preview: {JWT[:20] + '...' if JWT and len(JWT) > 20 else 'Not available'}")
+        print()
+        
+        if not JWT:
+            print("❌ ERROR: OWUI_JWT environment variable is not set!")
+            return False
+        
+        # Initialize the HTTP client (mimicking the startup event)
+        print("🔄 Initializing HTTP client...")
+        global client
+        from main import client
+        if client is None:
+            client = httpx.AsyncClient(
+                base_url=OWUI,
+                headers={"Authorization": f"Bearer {JWT}"},
+                timeout=60,
+            )
+            print("✅ HTTP client initialized")
+        else:
+            print("✅ HTTP client already initialized")
+        
+        print()
+        print("🔄 Testing get_service_token()...")
+        
+        # Call the function
+        service_token = await get_service_token()
+        
+        if service_token:
+            print("✅ SUCCESS: Service token obtained!")
+            print(f"Token type: {type(service_token)}")
+            print(f"Token length: {len(service_token) if isinstance(service_token, str) else 'N/A'}")
+            print(f"Token preview: {service_token[:20] + '...' if isinstance(service_token, str) and len(service_token) > 20 else service_token}")
+            
+            # Validate token format (should be a non-empty string)
+            if isinstance(service_token, str) and len(service_token) > 0:
+                print("✅ Token format validation: PASSED")
+                return True
+            else:
+                print("❌ Token format validation: FAILED - Token should be a non-empty string")
+                return False
+        else:
+            print("❌ FAILED: No service token obtained")
+            return False
+            
+    except Exception as e:
+        print(f"❌ ERROR during testing: {str(e)}")
+        print(f"Exception type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        return False
+    
+    finally:
+        # Clean up the client if we created it
+        if 'client' in locals() and client:
+            await client.aclose()
+            print("🧹 HTTP client closed")
+
+
+async def test_service_token_with_api_call():
+    """Test using the service token to make an actual API call"""
+    try:
+        from main import get_service_token, OWUI, JWT
+        
+        print("\n" + "=" * 60)
+        print("TESTING SERVICE TOKEN WITH API CALL")
+        print("=" * 60)
+        
+        # Initialize client
+        client = httpx.AsyncClient(
+            base_url=OWUI,
+            headers={"Authorization": f"Bearer {JWT}"},
+            timeout=60,
+        )
+        
+        # Get service token
+        print("🔄 Getting service token...")
+        service_token = await get_service_token()
+        
+        if not service_token:
+            print("❌ Could not obtain service token for API test")
+            return False
+        
+        print("✅ Service token obtained for API test")
+        
+        # Test the token by making an API call to /api/models
+        print("🔄 Testing service token with /api/models endpoint...")
+        
+        try:
+            headers = {
+                "Accept": "application/json",
+                "Authorization": f"Bearer {service_token}"
+            }
+            
+            response = await client.get("/api/models", headers=headers)
+            
+            print(f"API Response Status: {response.status_code}")
+            
+            if response.status_code == 200:
+                print("✅ SUCCESS: Service token works with API!")
+                
+                # Try to parse the response
+                try:
+                    data = response.json()
+                    print(f"Response type: {type(data)}")
+                    if isinstance(data, list):
+                        print(f"Number of models: {len(data)}")
+                        if data:
+                            print(f"First model preview: {data[0] if len(str(data[0])) < 100 else str(data[0])[:100] + '...'}")
+                    elif isinstance(data, dict):
+                        print(f"Response keys: {list(data.keys())}")
+                    else:
+                        print(f"Response preview: {str(data)[:200]}...")
+                except Exception as parse_error:
+                    print(f"⚠️  Could not parse JSON response: {parse_error}")
+                    print(f"Raw response (first 200 chars): {response.text[:200]}...")
+                
+                return True
+            else:
+                print(f"❌ API call failed with status {response.status_code}")
+                print(f"Response: {response.text[:200]}...")
+                return False
+                
+        except httpx.HTTPError as api_error:
+            print(f"❌ HTTP error during API call: {api_error}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ ERROR during API testing: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+    
+    finally:
+        if 'client' in locals() and client:
+            await client.aclose()
+
+
+async def main():
+    """Main test function"""
+    print("🚀 Starting Service Token Test Suite")
+    print(f"Timestamp: {asyncio.get_event_loop().time()}")
+    print()
+    
+    # Test 1: Basic service token functionality
+    test1_result = await test_get_service_token()
+    
+    # Test 2: Service token with actual API call
+    test2_result = await test_service_token_with_api_call()
+    
+    # Summary
+    print("\n" + "=" * 60)
+    print("TEST SUMMARY")
+    print("=" * 60)
+    print(f"Test 1 (get_service_token): {'✅ PASSED' if test1_result else '❌ FAILED'}")
+    print(f"Test 2 (API call with token): {'✅ PASSED' if test2_result else '❌ FAILED'}")
+    
+    overall_result = test1_result and test2_result
+    print(f"\nOverall Result: {'✅ ALL TESTS PASSED' if overall_result else '❌ SOME TESTS FAILED'}")
+    
+    return overall_result
+
+
+if __name__ == "__main__":
+    # Run the async main function
+    result = asyncio.run(main())
+    
+    # Exit with appropriate code
+    sys.exit(0 if result else 1)
+
+
+File: test_scripts\test_streaming.py
+--------------------------------------------------
+Content of test_scripts\test_streaming.py:
+#!/usr/bin/env python3
+"""
+Test script to verify streaming responses work correctly.
+This script tests both streaming and non-streaming endpoints.
+"""
+
+import sys
+import os
+import asyncio
+import httpx
+import json
+from dotenv import load_dotenv
+
+# Add the parent directory to the path so we can import from main
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+load_dotenv()
+
+async def test_streaming_response():
+    """Test the streaming /ask-file endpoint"""
+    print("Testing streaming response...")
+    
+    # Start the FastAPI app in the background or assume it's running
+    base_url = "http://localhost:5001"
+    
+    async with httpx.AsyncClient() as client:
+        payload = {
+            "question": "What is the vacation policy?",
+            "model": "gpt-5", 
+            "stream": True
+        }
+        
+        try:
+            async with client.stream(
+                "POST",
+                f"{base_url}/ask-file",
+                json=payload,
+                headers={"Accept": "text/event-stream"}
+            ) as response:
+                print(f"Response status: {response.status_code}")
+                print(f"Response headers: {dict(response.headers)}")
+                
+                if response.status_code == 200:
+                    print("\n--- Streaming Response ---")
+                    
+                    async for line in response.aiter_lines():
+                        if line.strip():
+                            print(f"Received: {line}")
+                            
+                            if line.startswith("data: "):
+                                data_part = line[6:].strip()
+                                if data_part == "[DONE]":
+                                    print("Stream completed!")
+                                    break
+                                try:
+                                    chunk_data = json.loads(data_part)
+                                    print(f"Parsed chunk: {chunk_data}")
+                                except json.JSONDecodeError:
+                                    print(f"Non-JSON data: {data_part}")
+                else:
+                    print(f"Error response: {await response.aread()}")
+                    
+        except Exception as e:
+            print(f"Error testing streaming: {e}")
+
+async def test_non_streaming_response():
+    """Test the non-streaming /ask-file endpoint for comparison"""
+    print("\nTesting non-streaming response...")
+    
+    base_url = "http://localhost:5001"
+    
+    async with httpx.AsyncClient() as client:
+        payload = {
+            "question": "What is the vacation policy?",
+            "model": "gpt-5",
+            "stream": False
+        }
+        
+        try:
+            response = await client.post(
+                f"{base_url}/ask-file",
+                json=payload,
+                headers={"Accept": "application/json"}
+            )
+            
+            print(f"Response status: {response.status_code}")
+            print(f"Response headers: {dict(response.headers)}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("\n--- Non-Streaming Response ---")
+                print(f"Normalized text length: {len(data.get('normalized_text', ''))}")
+                print(f"Sources count: {len(data.get('sources', []))}")
+                print(f"Instructions: {data.get('instructions', '')[:100]}...")
+            else:
+                print(f"Error response: {response.text}")
+                
+        except Exception as e:
+            print(f"Error testing non-streaming: {e}")
+
+async def test_streaming_with_direct_http_client():
+    """Test streaming using the http_client module directly"""
+    print("\nTesting streaming with direct HTTP client...")
+    
+    try:
+        from utils.environment import get_owui_url, get_owui_jwt, get_hardcoded_file_id
+        from utils.http_client import ensure_model, post_chat_completions_stream
+        
+        owui = get_owui_url()
+        jwt = get_owui_jwt()
+        file_id = get_hardcoded_file_id()
+        
+        async with httpx.AsyncClient(
+            base_url=owui,
+            timeout=httpx.Timeout(connect=5, read=30, write=30, pool=30),
+            http2=True
+        ) as client:
+            
+            model_alias = {"gpt-5": "gpt-5"}
+            model_id = await ensure_model(client, "gpt-5", jwt, model_alias)
+            
+            payload = {
+                "model": model_id,
+                "stream": True,
+                "messages": [{"role": "user", "content": "What is the vacation policy?"}],
+                "files": [{"id": file_id, "type": "file", "status": "processed"}],
+            }
+            
+            print("Streaming chunks from OWUI...")
+            async for chunk in post_chat_completions_stream(client, payload, jwt):
+                print(f"Chunk: {chunk.strip()}")
+                
+    except Exception as e:
+        print(f"Error testing direct streaming: {e}")
+
+if __name__ == "__main__":
+    print("=== Streaming Response Test ===")
+    print("Make sure the FastAPI server is running on localhost:5001")
+    print("Start with: uvicorn main:app --host 0.0.0.0 --port 5001 --reload")
+    print()
+    
+    asyncio.run(test_streaming_response())
+    asyncio.run(test_non_streaming_response())
+    asyncio.run(test_streaming_with_direct_http_client())
+
+
+File: test_scripts\test_token_caching.py
+--------------------------------------------------
+Content of test_scripts\test_token_caching.py:
+#!/usr/bin/env python3
+"""
+Test script to verify token caching functionality.
+This script tests that tokens are properly cached and reused.
+"""
+
+import sys
+import os
+import asyncio
+import httpx
+import time
+from dotenv import load_dotenv
+
+# Add the parent directory to the path so we can import from main
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from auth import get_cached_service_token, clear_token_cache
+from utils.environment import get_owui_url, get_owui_jwt
+
+load_dotenv()
+
+async def test_token_caching():
+    """Test token caching functionality"""
+    print("🧪 Testing Token Caching...")
+    
+    owui_url = get_owui_url()
+    jwt = get_owui_jwt()
+    
+    if not owui_url or not jwt:
+        print("❌ Missing required environment variables")
+        return False
+    
+    async with httpx.AsyncClient(base_url=owui_url) as client:
+        # Clear any existing cache
+        await clear_token_cache()
+        print("✅ Cleared token cache")
+        
+        # First call - should exchange JWT for service token
+        print("\n📞 First token request (should exchange JWT)...")
+        start_time = time.time()
+        token1 = await get_cached_service_token(client, jwt)
+        first_duration = time.time() - start_time
+        print(f"✅ Got token: {token1[:20]}...{token1[-10:] if len(token1) > 30 else ''}")
+        print(f"⏱️  Duration: {first_duration:.3f}s")
+        
+        # Second call - should use cached token
+        print("\n📞 Second token request (should use cache)...")
+        start_time = time.time()
+        token2 = await get_cached_service_token(client, jwt)
+        second_duration = time.time() - start_time
+        print(f"✅ Got token: {token2[:20]}...{token2[-10:] if len(token2) > 30 else ''}")
+        print(f"⏱️  Duration: {second_duration:.3f}s")
+        
+        # Verify tokens are the same
+        if token1 == token2:
+            print("✅ Tokens match - caching working!")
+        else:
+            print("❌ Tokens don't match - caching not working")
+            return False
+        
+        # Verify second call was faster (cache hit)
+        if second_duration < first_duration * 0.5 and second_duration > 0:  # Should be significantly faster
+            ratio = first_duration / second_duration if second_duration > 0 else float('inf')
+            print(f"✅ Cache hit was {ratio:.1f}x faster")
+        elif second_duration == 0:
+            print("✅ Cache hit returned in <1ms (instant) - treated as success")
+        else:
+            print("⚠️  Cache hit wasn't significantly faster (might still be working)")
+        
+        # Test cache clearing
+        print("\n🧹 Testing cache clearing...")
+        await clear_token_cache()
+        print("✅ Cache cleared")
+        
+        # Third call - should exchange again
+        print("\n📞 Third token request (after cache clear)...")
+        start_time = time.time()
+        token3 = await get_cached_service_token(client, jwt)
+        third_duration = time.time() - start_time
+        print(f"✅ Got token: {token3[:20]}...{token3[-10:] if len(token3) > 30 else ''}")
+        print(f"⏱️  Duration: {third_duration:.3f}s")
+        
+        # This should be a new exchange (similar duration to first call)
+        if third_duration > second_duration * 2:  # Should be much slower than cache hit
+            print("✅ Cache clearing forces new token exchange")
+        else:
+            print("⚠️  Duration suggests cache might not have been cleared")
+        
+        print("\n🎉 Token caching test completed successfully!")
+        return True
+
+async def test_concurrent_requests():
+    """Test multiple concurrent requests to verify thread safety"""
+    print("\n🧪 Testing Concurrent Token Requests...")
+    
+    owui_url = get_owui_url()
+    jwt = get_owui_jwt()
+    
+    async with httpx.AsyncClient(base_url=owui_url) as client:
+        # Clear cache
+        await clear_token_cache()
+        
+        # Make 5 concurrent requests
+        print("📞 Making 5 concurrent token requests...")
+        start_time = time.time()
+        
+        tasks = [get_cached_service_token(client, jwt) for _ in range(5)]
+        tokens = await asyncio.gather(*tasks)
+        
+        duration = time.time() - start_time
+        print(f"⏱️  Total duration: {duration:.3f}s")
+        
+        # All tokens should be the same
+        unique_tokens = set(tokens)
+        if len(unique_tokens) == 1:
+            print("✅ All concurrent requests got the same token")
+            print(f"✅ Token: {tokens[0][:20]}...{tokens[0][-10:] if len(tokens[0]) > 30 else ''}")
+        else:
+            print(f"❌ Got {len(unique_tokens)} different tokens from concurrent requests")
+            return False
+        
+        print("🎉 Concurrent request test completed successfully!")
+        return True
+
+if __name__ == "__main__":
+    async def main():
+        print("🚀 Starting Token Caching Tests\n")
+        
+        try:
+            success1 = await test_token_caching()
+            success2 = await test_concurrent_requests()
+            
+            if success1 and success2:
+                print("\n✅ All token caching tests passed!")
+            else:
+                print("\n❌ Some tests failed")
+                sys.exit(1)
+                
+        except Exception as e:
+            print(f"\n❌ Test failed with error: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+
+    asyncio.run(main())
+
+
+File: test_scripts\test_vp_auth_live.py
+--------------------------------------------------
+Content of test_scripts\test_vp_auth_live.py:
+#!/usr/bin/env python3
+"""
+Live test script for Vantagepoint Authentication
+Tests the actual authentication endpoint with real credentials
+"""
+
+import sys
+import os
+from datetime import datetime
+import json
+
+# Add the parent directory to the path so we can import from auth module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from auth.vp_auth import get_vantagepoint_token
+import httpx
+
+def test_vp_authentication():
+    """
+    Test the Vantagepoint authentication with live data
+    """
+    print("=" * 60)
+    print("VANTAGEPOINT AUTHENTICATION LIVE TEST")
+    print("=" * 60)
+    print(f"Test started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print()
+    
+    # Check if required environment variables are set
+    required_env_vars = [
+        "VP_BASE_URL",
+        "VP_USERNAME", 
+        "VP_PASSWORD",
+        "VP_DATABASE",
+        "VP_CLIENT_ID",
+        "VP_CLIENT_SECRET"
+    ]
+    
+    print("Checking environment variables...")
+    missing_vars = []
+    for var in required_env_vars:
+        value = os.environ.get(var)
+        if value:
+            if var in ["VP_PASSWORD", "VP_CLIENT_SECRET"]:
+                print(f"✓ {var}: {'*' * len(value)}")  # Mask sensitive data
+            else:
+                print(f"✓ {var}: {value}")
+        else:
+            missing_vars.append(var)
+            print(f"✗ {var}: NOT SET")
+    
+    if missing_vars:
+        print(f"\nERROR: Missing required environment variables: {', '.join(missing_vars)}")
+        print("Please set these variables in your .env file or environment.")
+        return False
+    
+    print("\n" + "-" * 60)
+    print("ATTEMPTING AUTHENTICATION...")
+    print("-" * 60)
+    
+    try:
+        # Call the authentication function
+        token_response = get_vantagepoint_token()
+        
+        print("✓ Authentication successful!")
+        print("\nResponse details:")
+        print("-" * 30)
+        
+        # Pretty print the response
+        for key, value in token_response.items():
+            if key.lower() in ['access_token', 'refresh_token', 'token']:
+                # Mask tokens for security but show first/last few characters
+                if isinstance(value, str) and len(value) > 10:
+                    masked_value = f"{value[:6]}...{value[-6:]}"
+                    print(f"{key}: {masked_value}")
+                else:
+                    print(f"{key}: {'*' * 8}")
+            else:
+                print(f"{key}: {value}")
+        
+        # Additional token analysis
+        print("\n" + "-" * 30)
+        print("TOKEN ANALYSIS:")
+        print("-" * 30)
+        
+        if 'access_token' in token_response:
+            token = token_response['access_token']
+            print(f"Access token length: {len(token)} characters")
+            print(f"Token type: {type(token).__name__}")
+        
+        if 'expires_in' in token_response:
+            expires_in = token_response['expires_in']
+            print(f"Token expires in: {expires_in} seconds ({expires_in/3600:.1f} hours)")
+        
+        if 'token_type' in token_response:
+            print(f"Token type: {token_response['token_type']}")
+        
+        return True
+        
+    except httpx.HTTPStatusError as e:
+        print(f"✗ HTTP Error occurred:")
+        print(f"  Status Code: {e.response.status_code}")
+        print(f"  Reason: {e.response.reason_phrase}")
+        print(f"  URL: {e.request.url}")
+        
+        try:
+            error_detail = e.response.json()
+            print(f"  Error Detail: {json.dumps(error_detail, indent=2)}")
+        except:
+            print(f"  Response Text: {e.response.text}")
+        
+        return False
+        
+    except httpx.RequestError as e:
+        print(f"✗ Request Error occurred:")
+        print(f"  Error: {str(e)}")
+        print("  This could be a network connectivity issue or invalid URL.")
+        return False
+        
+    except Exception as e:
+        print(f"✗ Unexpected error occurred:")
+        print(f"  Error Type: {type(e).__name__}")
+        print(f"  Error Message: {str(e)}")
+        return False
+
+def test_endpoint_connectivity():
+    """
+    Test basic connectivity to the Vantagepoint endpoint
+    """
+    print("\n" + "=" * 60)
+    print("ENDPOINT CONNECTIVITY TEST")
+    print("=" * 60)
+    
+    base_url = os.environ.get("VP_BASE_URL")
+    if not base_url:
+        print("✗ VP_BASE_URL not set")
+        return False
+    
+    print(f"Testing connectivity to: {base_url}")
+    
+    try:
+        # Test basic connectivity
+        response = httpx.get(base_url, timeout=10.0)
+        print(f"✓ Endpoint is reachable")
+        print(f"  Status Code: {response.status_code}")
+        print(f"  Response Headers: {dict(response.headers)}")
+        return True
+        
+    except httpx.TimeoutException:
+        print(f"✗ Timeout connecting to {base_url}")
+        return False
+        
+    except httpx.RequestError as e:
+        print(f"✗ Connection error: {str(e)}")
+        return False
+        
+    except Exception as e:
+        print(f"✗ Unexpected error: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    print("Starting Vantagepoint Authentication Live Tests...")
+    print()
+    
+    # Test endpoint connectivity first
+    connectivity_ok = test_endpoint_connectivity()
+    
+    # Test authentication
+    auth_ok = test_vp_authentication()
+    
+    # Summary
+    print("\n" + "=" * 60)
+    print("TEST SUMMARY")
+    print("=" * 60)
+    print(f"Endpoint Connectivity: {'✓ PASS' if connectivity_ok else '✗ FAIL'}")
+    print(f"Authentication Test: {'✓ PASS' if auth_ok else '✗ FAIL'}")
+    print(f"Overall Result: {'✓ ALL TESTS PASSED' if (connectivity_ok and auth_ok) else '✗ SOME TESTS FAILED'}")
+    print(f"Test completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Exit with appropriate code
+    sys.exit(0 if (connectivity_ok and auth_ok) else 1)
+
+
+File: test_scripts\__pycache__\test_auth_imports.py
+--------------------------------------------------
+Content of test_scripts\__pycache__\test_auth_imports.py:
+# Test script to verify auth module imports work correctly
+"""
+Simple test to verify that all authentication functions can be imported correctly
+from the new auth module structure.
+"""
+
+try:
+    # Test importing from the main auth module
+    from auth import (
+        get_service_token,
+        get_current_user_email,
+        get_graph_token_async,
+        call_pa_workflow_async,
+        get_vantagepoint_token
+    )
+    print("✅ Successfully imported all auth functions from main auth module")
+    
+    # Test importing from individual modules
+    from auth.service_auth import get_service_token, get_current_user_email
+    from auth.graph_auth import get_graph_token_async
+    from auth.power_automate_auth import call_pa_workflow_async
+    from auth.vp_auth import get_vantagepoint_token
+    print("✅ Successfully imported all auth functions from individual modules")
+    
+    # Test importing vantagepoint utilities
+    from utils.vantagepoint import get_vacation_days
+    print("✅ Successfully imported vantagepoint utilities")
+    
+    print("\n🎉 All authentication modules are properly structured and importable!")
+    
+except ImportError as e:
+    print(f"❌ Import error: {e}")
+except Exception as e:
+    print(f"❌ Unexpected error: {e}")
+
+
+File: utils\api_models.py
+--------------------------------------------------
+Content of utils\api_models.py:
+# Pydantic models for API requests and responses
+from typing import Optional, List
+from pydantic import BaseModel, Field
+
+
+class AskReq(BaseModel):
+    user: str = Field(..., description="User display name")
+    question: str = Field(..., description="User question")
+    model: str = Field(
+        "gpt-5", description="Model id as registered in GIA (/api/models)"
+    )  
+
+
+File: utils\client_registry.py
+--------------------------------------------------
+Content of utils\client_registry.py:
+# HTTP Client Registry for managing shared clients across the application
+import httpx
+import logging
+from typing import Dict, Optional
+from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
+
+class ClientRegistry:
+    """
+    Manages shared HTTP clients per host to avoid creating/destroying
+    clients and TLS handshakes unnecessarily.
+    """
+    
+    def __init__(self):
+        self._clients: Dict[str, httpx.AsyncClient] = {}
+        self._default_timeout = httpx.Timeout(connect=10, read=60, write=30, pool=30)
+        self._default_limits = httpx.Limits(max_keepalive_connections=16, max_connections=64)
+    
+    def get_client(self, base_url: str, **kwargs) -> httpx.AsyncClient:
+        """
+        Get or create a shared client for the given base URL.
+        
+        Args:
+            base_url: The base URL for the client
+            **kwargs: Additional httpx.AsyncClient kwargs
+            
+        Returns:
+            Shared AsyncClient instance for the host
+        """
+        # Normalize base_url to just scheme + netloc
+        parsed = urlparse(base_url)
+        host_key = f"{parsed.scheme}://{parsed.netloc}"
+        
+        if host_key not in self._clients:
+            # Set defaults if not provided
+            client_kwargs = {
+                'base_url': host_key,
+                'timeout': kwargs.get('timeout', self._default_timeout),
+                'limits': kwargs.get('limits', self._default_limits),
+                'http2': kwargs.get('http2', True),
+                **{k: v for k, v in kwargs.items() if k not in ['timeout', 'limits', 'http2']}
+            }
+            
+            self._clients[host_key] = httpx.AsyncClient(**client_kwargs)
+            logger.debug(f"Created new shared client for {host_key}")
+        
+        return self._clients[host_key]
+    
+    def get_gia_client(self) -> Optional[httpx.AsyncClient]:
+        """Get the GIA/OWUI client if it exists."""
+        # This will be set by main.py
+        return self._clients.get('_gia_client')
+    
+    def set_gia_client(self, client: httpx.AsyncClient):
+        """Set the main GIA client."""
+        self._clients['_gia_client'] = client
+    
+    async def close_all(self):
+        """Close all managed clients."""
+        for host, client in self._clients.items():
+            try:
+                await client.aclose()
+                logger.debug(f"Closed client for {host}")
+            except Exception as e:
+                logger.warning(f"Error closing client for {host}: {e}")
+        self._clients.clear()
+
+# Global registry instance
+client_registry = ClientRegistry()
+
+
+File: utils\datetime_utils.py
+--------------------------------------------------
+Content of utils\datetime_utils.py:
+# Date and time utilities
+from typing import Optional
+from datetime import datetime, timezone
+
+
+def years_between(iso_date: Optional[str]) -> Optional[float]:
+    """
+    Calculate years between an ISO date string and now.
+    
+    Args:
+        iso_date: ISO format date string
+        
+    Returns:
+        Number of years as float, or None if date is invalid
+    """
+    if not iso_date:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso_date.replace("Z", "")).replace(
+            tzinfo=timezone.utc
+        )
+        now = datetime.now(timezone.utc)
+        return round((now - dt).days / 365.25, 2)
+    except Exception:
+        return None
+
+
+File: utils\employment_data.py
+--------------------------------------------------
+Content of utils\employment_data.py:
+# Data transformation utilities for employment and HR data
+from typing import Optional
+from pydantic import BaseModel
+from utils.datetime_utils import years_between
+from datetime import datetime
+
+
+
+class LeadershipInfo(BaseModel):
+    super_employee_id: Optional[str] = None
+    super_name: Optional[str] = None
+    super_email: Optional[str] = None    
+    hrp_employee_id: Optional[str] = None
+    hrp_name: Optional[str] = None
+    hrp_email: Optional[str] = None
+    director_id: Optional[str] = None
+    director_name: Optional[str] = None
+    director_email: Optional[str] = None
+    mvp_id: Optional[str] = None
+    mvp_name: Optional[str] = None
+    mvp_email: Optional[str] = None
+    evp_id: Optional[str] = None
+    evp_name: Optional[str] = None
+    evp_email: Optional[str] = None
+
+    model_config = {
+        "exclude_none": True,
+        "orm_mode": True,
+    }
+
+
+
+class EmploymentSummary(BaseModel):
+    employee_id: Optional[str] = None
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    cll: Optional[str] = None
+    market: Optional[str] = None
+    department: Optional[str] = None
+    nomination_level: Optional[str] = None
+    nomination_date: Optional[str] = None
+    latest_hire_date: Optional[str] = None
+    original_hire_date: Optional[str] = None
+    years_with_gresham_smith: Optional[float] = None
+    los_years: Optional[float] = None
+
+    model_config = {
+        "exclude_none": True,
+        "orm_mode": True,
+    }
+
+
+
+class EmploymentResp(BaseModel):
+    """
+    Response model for /get-my-leadership (ask_employment_details)
+    """
+    leadership: LeadershipInfo
+    summary: EmploymentSummary
+
+    model_config = {
+        "exclude_none": True,
+        "orm_mode": True,
+    }
+
+
+
+def build_employment_payload(raw: dict) -> EmploymentResp:
+    """
+    Build structured employment response from raw employee data.
+    """
+    market = (raw or {}).get("Market")
+    leadership = LeadershipInfo(
+        super_employee_id=raw.get("superEmployeeID"),
+        super_name=raw.get("superName"),
+        super_email=raw.get("superEmail"),
+        hrp_employee_id=raw.get("hrpEmployeeID"),
+        hrp_name=raw.get("hrpName"),
+        hrp_email=raw.get("hrpEmail"),
+        director_id=raw.get("Director_ID"),
+        director_name=raw.get("Director_Name"),
+        director_email=raw.get("Director_Email"),
+        mvp_id=raw.get("MVP_ID"),
+        mvp_name=raw.get("MVP_Name"),
+        mvp_email=raw.get("MVP_Email"),
+        evp_id=raw.get("EVP_ID"),
+        evp_name=raw.get("EVP_Name"),
+        evp_email=raw.get("EVP_Email"),
+    )
+
+    # Format nomination_date as MM/dd/yyyy or spell out the date if possible
+    def format_date(date_str):
+        if not date_str:
+            return None
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            return dt.strftime("%m/%d/%Y")
+        except ValueError:
+            try:
+                dt = datetime.fromisoformat(date_str)
+                return dt.strftime("%m/%d/%Y")
+            except Exception:
+                return date_str
+
+    summary = EmploymentSummary(
+        employee_id=raw.get("EmployeeID"),
+        display_name=raw.get("DisplayName"),
+        email=raw.get("Email"),
+        cll=raw.get("CLL"),
+        market=market,
+        department=raw.get("Department"),
+        nomination_level=raw.get("NominationLevel"),
+        nomination_date=format_date(raw.get("NominationDate")),
+        latest_hire_date=format_date(raw.get("LatestHireDate")),
+        original_hire_date=format_date(raw.get("OriginalHireDate")),
+        years_with_gresham_smith=raw.get("YearsWithGreshamSmith"),
+        los_years=years_between(raw.get("LatestHireDate")),
+    )
+
+    return EmploymentResp(leadership=leadership, summary=summary)
+
+
+File: utils\environment.py
+--------------------------------------------------
+Content of utils\environment.py:
+# Environment configuration and logging utilities
+import os
+import json
+import logging
+from typing import Dict, Any
+from dotenv import load_dotenv
+from utils.security import mask_token
+
+load_dotenv()
+
+
+def get_environment_config() -> Dict[str, Any]:
+    """
+    Load and return environment configuration with masked sensitive values for logging.
+    
+    Returns:
+        Dict containing environment configuration
+    """
+    return {
+        "GIA_URL": os.environ.get("GIA_URL", "http://localhost:8080"),
+        "OWUI_JWT": mask_token(os.environ.get("OWUI_JWT"), 10),
+        "HARDCODED_FILE_ID": os.environ.get("HARDCODED_FILE_ID"),
+        "OPENAI_API_KEY": mask_token(os.environ.get("OPENAI_API_KEY"), 10),
+        "OPENAI_MODEL": os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+        "DEBUG": os.environ.get("DEBUG", False),
+        "VP_BASE_URL": os.environ.get("VP_BASE_URL"),
+        "VP_SP_GETVACATION": os.environ.get("VP_SP_GETVACATION"),
+    }
+
+
+def log_environment_config(logger: logging.Logger) -> None:
+    """
+    Log environment configuration with masked sensitive values.
+    
+    Args:
+        logger: Logger instance to use for logging
+    """
+    env_vars = get_environment_config()
+    logger.debug("Loaded environment variables:\n%s", json.dumps(env_vars, indent=2))
+
+
+def validate_required_env() -> None:
+    """
+    Validate that required environment variables are set.
+    
+    Raises:
+        RuntimeError: If required environment variables are missing
+    """
+    jwt = os.environ.get("OWUI_JWT")
+    if not jwt:
+        raise RuntimeError("OWUI_JWT is required in the environment.")
+
+
+# Environment variable getters
+def get_tool_name() -> str:
+    return os.environ.get("TOOL_NAME", "GIA:HR POLICY")
+
+def get_owui_url() -> str:
+    return os.environ.get("GIA_URL", "http://localhost:8080")
+
+
+def get_owui_jwt() -> str:
+    return os.environ.get("OWUI_JWT", "")
+
+
+def get_hardcoded_file_id() -> str:
+    return os.environ.get("HARDCODED_FILE_ID", "")
+
+
+def get_openai_model() -> str:
+    return os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+
+def get_openai_api_key() -> str:
+    return os.environ.get("OWUI_KEY", "")
+
+
+def get_openai_model() -> str:
+    return os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+
+def get_debug_mode() -> bool:
+    return bool(os.environ.get("DEBUG", True))
+
+
+def get_vp_base_url() -> str:
+    return os.environ.get("VP_BASE_URL", "")
+
+
+def get_vp_procedure() -> str:
+    return os.environ.get("VP_SP_GETVACATION", "")
+
+
+File: utils\security.py
+--------------------------------------------------
+Content of utils\security.py:
+# Security and token utilities
+from typing import Optional
+
+
+def mask_token(token: str | None, show_last: int = 10) -> str | None:
+    """
+    Mask sensitive tokens for logging purposes.
+    
+    Args:
+        token: The token to mask
+        show_last: Number of characters to show at the end
+        
+    Returns:
+        Masked token string or None if token is None
+    """
+    if not token:
+        return None
+    if len(token) <= show_last:
+        return "*" * len(token)
+    return "*" * (len(token) - show_last) + token[-show_last:]
+
+
+File: utils\vacation_data.py
+--------------------------------------------------
+Content of utils\vacation_data.py:
+# Vacation data models and utilities
+from typing import Optional
+from pydantic import BaseModel
+
+
+class VacationResp(BaseModel):
+    employee_id: Optional[str] = None
+    starting_balance: Optional[float] = None
+    current_balance: Optional[float] = None
+    instructions: Optional[str] = None
+
+
+File: utils\vantagepoint.py
+--------------------------------------------------
+Content of utils\vantagepoint.py:
+# Vantagepoint API utilities for vacation and employee data
+import httpx
+import logging
+import json
+import os
+import re
+import xmltodict
+from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+from utils.client_registry import client_registry
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+VP_BASE_URL = os.environ.get("VP_BASE_URL")
+PROCEDURE = os.environ.get("VP_SP_GETVACATION")
+
+async def get_vacation_days(
+    payload: Dict[str, Any], 
+    token: Optional[str], 
+    client: Optional[httpx.AsyncClient] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Get vacation days for a specific employee using the Vantagepoint API.
+    
+    Args:
+        payload (dict): Request payload containing employee information
+        token (str): Access token for Vantagepoint API
+        client: Optional shared AsyncClient to use, otherwise gets one from registry
+        
+    Returns:
+        dict: Parsed vacation data or None if the API call fails
+        
+    Raises:
+        httpx.HTTPError: If the API call fails
+    """
+    access_token = token
+    
+    url = f"{VP_BASE_URL}/api/Utilities/InvokeCustom/{PROCEDURE}"
+    
+    logger.debug(f"[GET /get_vacation_days] Request URL: {url}")
+    logger.debug(f"[GET /get_vacation_days] Payload: {payload}")
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/xml",
+        "Content-Type": "application/json"
+    }
+    
+    # Use provided client or get one from registry
+    if client is None:
+        client = client_registry.get_client(VP_BASE_URL)
+    
+    response = await client.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    
+    xml = response.text
+    # Remove leading/trailing quotes if present
+    xml = xml.strip()
+    if xml.startswith('"') and xml.endswith('"'):
+        xml = xml[1:-1]
+    
+    # Handle escaped characters - decode them properly
+    xml = xml.encode().decode('unicode_escape')
+    
+    # Remove the schema block
+    xml = re.sub(r'<xs:schema.*?</xs:schema>', '', xml, flags=re.DOTALL)
+    # Remove empty <Table></Table> elements
+    xml = re.sub(r'<Table>\s*</Table>', '', xml, flags=re.DOTALL)
+    # Remove any control characters (non-printable)
+    xml = re.sub(r'[^\x09\x0A\x0D\x20-\x7E]+', '', xml)
+    # Strip leading/trailing whitespace again
+    xml = xml.strip()
+    
+    logger.debug(f"[GET /get_vacation_days] Cleaned XML: {xml[:500]}...")  # Log first 500 chars for brevity
+    
+    # Parse the XML to dict
+    parsed_xml = xmltodict.parse(xml)
+    
+    # Extract vacation balance data and clean up field names
+    try:
+        # Navigate to the Table data
+        new_dataset = parsed_xml.get('NewDataSet', {})
+        table_data = new_dataset.get('Table', {})
+        
+        # Extract and clean up the vacation data
+        vacation_data = {
+            "employee_id": table_data.get('Employee'),
+            "starting_balance": float(table_data.get('Starting_x0020_Balance', 0)) if table_data.get('Starting_x0020_Balance') else None,
+            "current_balance": float(table_data.get('Current_x0020_Balance', 0)) if table_data.get('Current_x0020_Balance') else None
+        }
+        
+        logger.debug(f"Extracted vacation data: {vacation_data}")
+        return vacation_data
+        
+    except Exception as e:
+        logger.error(f"Error parsing vacation XML data: {e}")
+        logger.debug(f"Parsed XML structure: {parsed_xml}")
+        # Return the raw parsed XML as fallback
+        return parsed_xml
+
+

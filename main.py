@@ -99,7 +99,7 @@ async def ask_employment_details(req: AskReq = Body(...)):
     rid = uuid.uuid4().hex[:8]
     logger.debug("ask_employment_details[%s] model=%s", rid, req.model)
     graph_auth = await get_graph_token_async()
-    current_user = await get_current_user_email(req.user, client)
+    current_user = await get_current_user_email(req.user_email, client)
     email = extract_single_user_email(current_user)
     employee_details = await call_pa_workflow_async({"CompanyEmailAddress": email}, graph_auth)
     if not employee_details:
@@ -119,7 +119,7 @@ async def ask_vacation_details(req: AskReq = Body(...)):
     graph_auth = await graph_auth_coro
     if not graph_auth:
         raise HTTPException(status_code=502, detail="Failed to acquire Microsoft Graph token")
-    current_user = await get_current_user_email(req.user, client)
+    current_user = await get_current_user_email(req.user_email, client)
     email = extract_single_user_email(current_user)
     pa_coro = call_pa_workflow_async({"CompanyEmailAddress": email}, graph_auth)
     vp_token_coro = get_vantagepoint_token()
