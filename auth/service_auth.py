@@ -19,10 +19,12 @@ def extract_single_user_email(user_response: dict) -> str:
     Ensure the user response contains exactly one user and extract the email.
     Raises HTTPException if not found or ambiguous.
     """
-    if not user_response or user_response.get("total") != 1:
-        raise HTTPException(status_code=502, detail="Could not uniquely resolve current user from GIA/OWUI")
+    logger.debug("Extracting user email from response: %s", user_response)
     users = user_response.get("users", [])
-    if not users or not users[0].get("email"):
+    logger.debug("User count in array: %s", len(users))
+    if not user_response or len(users) != 1:
+        raise HTTPException(status_code=502, detail="Could not uniquely resolve current user from GIA/OWUI")
+    if not users[0].get("email"):
         raise HTTPException(status_code=502, detail="No email found for current user")
     return users[0]["email"]
 
@@ -87,6 +89,7 @@ async def get_current_user_email(user: str, client: httpx.AsyncClient, jwt: str 
     Fetch the authenticated user's email from OWUI /api/v1/auths/.
     Uses static OWUI_KEY for authentication.
     """
+    logger.debug("Client is None: %s", client)
     logger.debug("Fetching current user email for user: %s", user)
     logger.debug("Using OWUI_KEY: %s", OWUI_KEY[-7:] if OWUI_KEY else "Not Set")
     try:
