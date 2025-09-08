@@ -95,6 +95,15 @@ async def _shutdown():
 async def ask_employment_details(req: AskReq = Body(...)):
     """
     Returns structured leadership and employment details for the current user.
+    
+    Args: 
+        req (AskReq): The request body containing user information and question.
+        
+    Returns:
+            EmploymentResp: Structured employment response including leadership and summary details.
+            
+    Raises:
+        HTTPException: If there are issues retrieving user details or if external services fail.
     """
     rid = uuid.uuid4().hex[:8]
     logger.debug("ask_employment_details[%s] model=%s", rid, req.model)
@@ -111,6 +120,15 @@ async def ask_employment_details(req: AskReq = Body(...)):
 async def ask_vacation_details(req: AskReq = Body(...)):
     """
     Returns structured vacation details for the current user.
+    
+    Args: 
+        req (AskReq): The request body containing user information and question.
+    
+    Returns:
+        VacationResp: Structured vacation response including employee ID, starting balance, current balance, and instructions.
+        
+    Raises:
+        HTTPException: If there are issues retrieving user details or if external services fail.
     """
     rid = uuid.uuid4().hex[:8]
     logger.debug("ask_vacation_details[%s] model=%s", rid, req.model)

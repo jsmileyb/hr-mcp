@@ -15,6 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 # -----------------------------
 # Logging
 # -----------------------------
@@ -24,19 +25,12 @@ def setup_logging(log_level: str = "INFO") -> None:
         logger.handlers.clear()
     ch = logging.StreamHandler()
     ch.setLevel(numeric_level)
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     ch.setFormatter(formatter)
     logger.addHandler(ch)
     logger.setLevel(numeric_level)
-
-# -----------------------------
-# User redactor (unchanged)
-# -----------------------------
-def _redact_user(u: Optional[dict]) -> Optional[dict]:
-    if not isinstance(u, dict):
-        return None
-    redact_keys = {"api_key", "oauth_sub", "profile_image_url"}
-    return {k: ("<redacted>" if k in redact_keys else v) for k, v in u.items()}
 
 
 # -----------------------------
@@ -323,13 +317,19 @@ class Filter:
         """
         task = body.get("task") if isinstance(body.get("task"), dict) else {}
         meta = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-        if isinstance(task.get("requires_external"), bool) and task["requires_external"]:
+        if (
+            isinstance(task.get("requires_external"), bool)
+            and task["requires_external"]
+        ):
             return True
         for key in ("systems", "endpoints"):
             val = task.get(key)
             if isinstance(val, (list, tuple)) and len(val) > 0:
                 return True
-        if isinstance(meta.get("requires_external"), bool) and meta["requires_external"]:
+        if (
+            isinstance(meta.get("requires_external"), bool)
+            and meta["requires_external"]
+        ):
             return True
         return False
 
@@ -364,7 +364,15 @@ class Filter:
                 return "payroll"
             if t in ["benefits", "insurance", "401k", "perk", "perks"]:
                 return "benefits"
-            if t in ["people", "employee", "leadership", "org", "hrp", "partner", "assignment"]:
+            if t in [
+                "people",
+                "employee",
+                "leadership",
+                "org",
+                "hrp",
+                "partner",
+                "assignment",
+            ]:
                 return "people"
             if t in ["tenure", "service", "anniversary", "hiredate", "hire_date"]:
                 return "tenure"
@@ -379,7 +387,7 @@ class Filter:
                 text_fields.append(v)
         for scope in ("metadata", "context"):
             v = body.get(scope, {})
-            for kk, vv in (v.items() if isinstance(v, dict) else []):
+            for kk, vv in v.items() if isinstance(v, dict) else []:
                 if isinstance(vv, str):
                     text_fields.append(vv)
         hay = " ".join(text_fields).lower()
@@ -388,11 +396,52 @@ class Filter:
             return any(w in hay for w in words)
 
         pto_kw = ["pto", "vacation", "time off", "leave", "holiday", "accrual"]
-        payroll_kw = ["payroll", "pay", "paystub", "w-2", "w2", "withholding", "deduction", "tax"]
-        policy_kw = ["policy", "handbook", "guideline", "procedure", "benefit policy", "eligibility"]
-        benefits_kw = ["benefits", "insurance", "medical", "dental", "vision", "401k", "hsa", "fsa", "perk"]
-        people_kw = ["employee", "manager", "leader", "leadership", "org chart", "assignment", "hrp", "partner"]
-        tenure_kw = ["tenure", "hire date", "years of service", "anniversary", "service award"]
+        payroll_kw = [
+            "payroll",
+            "pay",
+            "paystub",
+            "w-2",
+            "w2",
+            "withholding",
+            "deduction",
+            "tax",
+        ]
+        policy_kw = [
+            "policy",
+            "handbook",
+            "guideline",
+            "procedure",
+            "benefit policy",
+            "eligibility",
+        ]
+        benefits_kw = [
+            "benefits",
+            "insurance",
+            "medical",
+            "dental",
+            "vision",
+            "401k",
+            "hsa",
+            "fsa",
+            "perk",
+        ]
+        people_kw = [
+            "employee",
+            "manager",
+            "leader",
+            "leadership",
+            "org chart",
+            "assignment",
+            "hrp",
+            "partner",
+        ]
+        tenure_kw = [
+            "tenure",
+            "hire date",
+            "years of service",
+            "anniversary",
+            "service award",
+        ]
 
         if has_any(pto_kw):
             return "pto"
@@ -451,7 +500,9 @@ class Filter:
 
             if self.valves.SHOW_PATIENCE_HINTS and externals:
                 if (self.current_response_index % patience_gap) == 0:
-                    hint = self.PATIENCE_HINTS[patience_index % len(self.PATIENCE_HINTS)]
+                    hint = self.PATIENCE_HINTS[
+                        patience_index % len(self.PATIENCE_HINTS)
+                    ]
                     patience_index += 1
                     line = f"{base_line}  {hint}"
                 else:
@@ -459,7 +510,9 @@ class Filter:
             else:
                 line = base_line
 
-            await __event_emitter__({"type": "status", "data": {"description": line, "done": False}})
+            await __event_emitter__(
+                {"type": "status", "data": {"description": line, "done": False}}
+            )
             await asyncio.sleep(self.valves.ROTATE_SECONDS)
 
     # -----------------------------
@@ -475,13 +528,12 @@ class Filter:
         Invoked at the start of processing to show a "Thinking..." indicator.
         """
         setup_logging(self.valves.LOG_LEVEL)
-        logger.debug(f"Inlet called; user={_redact_user(__user__)}")
-        
+
         user_name = (__user__ or {}).get("name") or ""
         user_email = (__user__ or {}).get("email") or ""
         logger.debug(f"Outlet called for user: {user_name}")
         logger.debug("Outlet called - stopping HR thinking indicator")
-        
+
         if "valves" in body and isinstance(body["valves"], dict):
             try:
                 self.valves = self.Valves(**{**self.Valves().dict(), **body["valves"]})
@@ -497,10 +549,16 @@ class Filter:
 
         appended_message = template + last_message
         body["messages"][-1]["content"] = appended_message
-        
-        logger.debug("%s Final message after appending system context: %s", "*" * 75, appended_message)
-        
-        asyncio.create_task(self._update_thinking_status(__event_emitter__, body, __user__))
+
+        logger.debug(
+            "%s Final message after appending system context: %s",
+            "*" * 75,
+            appended_message,
+        )
+
+        asyncio.create_task(
+            self._update_thinking_status(__event_emitter__, body, __user__)
+        )
         return body
 
     async def outlet(
