@@ -7,6 +7,9 @@ from datetime import datetime
 
 
 class LeadershipInfo(BaseModel):
+    super_employee_id: Optional[str] = None
+    super_name: Optional[str] = None
+    super_email: Optional[str] = None    
     hrp_employee_id: Optional[str] = None
     hrp_name: Optional[str] = None
     hrp_email: Optional[str] = None
@@ -68,6 +71,9 @@ def build_employment_payload(raw: dict) -> EmploymentResp:
     """
     market = (raw or {}).get("Market")
     leadership = LeadershipInfo(
+        super_employee_id=raw.get("superEmployeeID"),
+        super_name=raw.get("superName"),
+        super_email=raw.get("superEmail"),
         hrp_employee_id=raw.get("hrpEmployeeID"),
         hrp_name=raw.get("hrpName"),
         hrp_email=raw.get("hrpEmail"),

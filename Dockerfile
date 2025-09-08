@@ -45,10 +45,10 @@ USER appuser
 COPY . .
 
 # Expose the port that the application listens on.
-EXPOSE 5001
+EXPOSE 8000
 
 # Run the application.
-CMD uvicorn 'main:app' --host=0.0.0.0 --port=5001
+CMD uvicorn 'main:app' --host=0.0.0.0 --port=8000
 
 # FASTER EVENT LOOP AND PARSER -- LINUX ONLY!!!
 # uvicorn "main:app" --host 0.0.0.0 --port 5001 --workers 2 --loop uvloop --http httptools

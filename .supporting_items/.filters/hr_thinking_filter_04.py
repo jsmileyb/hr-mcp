@@ -1,7 +1,7 @@
 """
 GIA HR Assistant Thinking Indicator (Expanded Tracks)
 Author: Smiley Baltz
-Version: 0.0.2
+Version: 0.0.3
 Description: Playful HR "Thinking..." indicator with tone, task-type tracks, first-name injection,
 plus expanded non-general tracks and optional randomization.
 """
@@ -46,10 +46,7 @@ class Filter:
     class Valves(BaseModel):
         system_message: str = Field(
             default="""        
-        <context>
-        - You are chatting with {{USER_NAME}}.
-        </context>
-
+        <context>You are chatting with {{USER_NAME}}.</context>
         """.replace(
                 "\n", " "
             ).strip(),
@@ -477,14 +474,30 @@ class Filter:
         """
         Invoked at the start of processing to show a "Thinking..." indicator.
         """
+        setup_logging(self.valves.LOG_LEVEL)
+        logger.debug(f"Inlet called; user={_redact_user(__user__)}")
+        
+        user_name = (__user__ or {}).get("name") or ""
+        logger.debug(f"Outlet called for user: {user_name}")
+        logger.debug("Outlet called - stopping HR thinking indicator")
+        
         if "valves" in body and isinstance(body["valves"], dict):
             try:
                 self.valves = self.Valves(**{**self.Valves().dict(), **body["valves"]})
             except Exception:
                 self.valves = self.Valves()
 
-        setup_logging(self.valves.LOG_LEVEL)
-        logger.debug(f"Inlet called; user={_redact_user(__user__)}")
+        last_message = body.get("messages", [])[-1]["content"]
+        template = self.valves.system_message
+
+        # Personalize
+        template = template.replace("{{USER_NAME}}", user_name or "Unknown")
+
+        appended_message = template + last_message
+        body["messages"][-1]["content"] = appended_message
+        
+        logger.debug("%s Final message after appending system context: %s", "*" * 75, appended_message)
+        
         asyncio.create_task(self._update_thinking_status(__event_emitter__, body, __user__))
         return body
 
@@ -497,9 +510,6 @@ class Filter:
         """
         Invoked after processing to stop the indicator and summarize duration.
         """
-        user_name = (__user__ or {}).get("name") or ""
-        logger.debug(f"Outlet called for user: {user_name}")
-        logger.debug("Outlet called - stopping HR thinking indicator")
         self.is_thinking = False
         end_time = time.time()
         elapsed = int(max(0, end_time - (self.start_time or end_time)))
@@ -513,4 +523,5 @@ class Filter:
                 },
             }
         )
+        logger.debug("%s Here is the body at outlet: %s", "#%#" * 50, body)
         return body
