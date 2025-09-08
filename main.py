@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from utils.environment import (
-    log_environment_config, validate_required_env, get_tool_name, get_owui_url, get_owui_jwt, get_hardcoded_file_id, get_debug_mode
+    log_environment_config, validate_required_env, get_tool_name, get_owui_url, get_hardcoded_file_id, get_debug_mode
 )
 from utils.api_models import AskReq
 from utils.employment_data import EmploymentResp, build_employment_payload
@@ -57,8 +57,8 @@ _ensure_logger()
 
 
 # --- Config / HTTP client ---
+
 OWUI = get_owui_url()
-JWT = get_owui_jwt()
 HARDCODED_FILE_ID = get_hardcoded_file_id()
 client: httpx.AsyncClient | None = None
 log_environment_config(logger)
@@ -98,7 +98,7 @@ async def ask_employment_details(req: AskReq = Body(...)):
     rid = uuid.uuid4().hex[:8]
     logger.debug("ask_employment_details[%s] model=%s", rid, req.model)
     graph_auth = await get_graph_token_async()
-    current_user = await get_current_user_email(req.user, client, JWT)
+    current_user = await get_current_user_email(req.user, client)
     email = extract_single_user_email(current_user)
     employee_details = await call_pa_workflow_async({"CompanyEmailAddress": email}, graph_auth)
     if not employee_details:
@@ -115,13 +115,10 @@ async def ask_vacation_details(req: AskReq = Body(...)):
     logger.debug("ask_vacation_details[%s] model=%s", rid, req.model)
     logger.debug(f"{'~' * 25}This is the request: {req}")
     graph_auth_coro = get_graph_token_async()
-    service_token_coro = get_cached_service_token(client, JWT)
-    graph_auth, service_token = await asyncio.gather(graph_auth_coro, service_token_coro)
+    graph_auth = await graph_auth_coro
     if not graph_auth:
         raise HTTPException(status_code=502, detail="Failed to acquire Microsoft Graph token")
-    if not service_token:
-        raise HTTPException(status_code=502, detail="Failed to acquire service token from GIA/OWUI")
-    current_user = await get_current_user_email(req.user, client, JWT)
+    current_user = await get_current_user_email(req.user, client)
     email = extract_single_user_email(current_user)
     pa_coro = call_pa_workflow_async({"CompanyEmailAddress": email}, graph_auth)
     vp_token_coro = get_vantagepoint_token()
