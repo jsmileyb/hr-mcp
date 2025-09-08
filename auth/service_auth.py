@@ -6,9 +6,12 @@ import os
 from fastapi import HTTPException
 from dotenv import load_dotenv
 
+from utils.environment import get_openai_api_key
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+OWUI_KEY = get_openai_api_key()
 
 
 def extract_single_user_email(user_response: dict) -> str:
@@ -84,12 +87,14 @@ async def get_current_user_email(user: str, client: httpx.AsyncClient, jwt: str 
     Fetch the authenticated user's email from OWUI /api/v1/auths/.
     Uses static OWUI_KEY for authentication.
     """
+    logger.debug("Fetching current user email for user: %s", user)
+    logger.debug("Using OWUI_KEY: %s", OWUI_KEY[-7:] if OWUI_KEY else "Not Set")
     try:
         r = await make_authenticated_request(
             client,
             "GET",
             f"/api/v1/users/?page=1&query={user}&order_by=created_at&direction=asc",
-            headers={"Accept": "application/json"}
+            headers={"Accept": "application/json", "Authorization": f"Bearer {OWUI_KEY}"}
         )
         payload = r.json()
     except httpx.HTTPError as e:

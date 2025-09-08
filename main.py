@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from utils.environment import (
-    log_environment_config, validate_required_env, get_tool_name, get_owui_url, get_hardcoded_file_id, get_debug_mode
+    log_environment_config, validate_required_env, get_tool_name, get_owui_url, get_openai_api_key, get_hardcoded_file_id, get_debug_mode
 )
 from utils.api_models import AskReq
 from utils.employment_data import EmploymentResp, build_employment_payload
@@ -59,6 +59,7 @@ _ensure_logger()
 # --- Config / HTTP client ---
 
 OWUI = get_owui_url()
+OWUI_KEY = get_openai_api_key()
 HARDCODED_FILE_ID = get_hardcoded_file_id()
 client: httpx.AsyncClient | None = None
 log_environment_config(logger)

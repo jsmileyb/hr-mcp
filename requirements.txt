@@ -6,6 +6,7 @@ httpx
 httpx[http2]
 xmltodict
 asyncio
+python-dotenv
 
 # Speed-ups (Linux/macOS only)
 uvloop; platform_system != "Windows"

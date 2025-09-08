@@ -1,7 +1,6 @@
 services:
-  vantagepoint-server:
+  hr-assistant-server:
     build:
       context: .
     ports:
       - 5001:5001
-

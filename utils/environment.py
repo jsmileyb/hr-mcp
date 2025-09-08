@@ -72,7 +72,7 @@ def get_openai_model() -> str:
 
 
 def get_openai_api_key() -> str:
-    return os.environ.get("OPENAI_API_KEY", "")
+    return os.environ.get("OWUI_KEY", "")
 
 
 def get_openai_model() -> str:
