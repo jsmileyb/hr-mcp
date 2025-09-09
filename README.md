@@ -35,9 +35,8 @@ Environment variables are loaded via `python-dotenv`.
 
 **Minimum required:**
 
-- `OWUI_JWT` — Bootstrap JWT used to exchange for a service token
+- `OWUI_KEY` — API key used for authenticating with GIA/OWUI endpoints. (JWT is no longer used.)
 - `GIA_URL` — Base URL of your GIA/OWUI gateway (e.g., https://gia.example.com)
-- `HARDCODED_FILE_ID` — File id of the Employee Handbook in GIA
 - `PA_URL` — Power Automate flow HTTPS endpoint (for employee metadata)
 - `VP_BASE_URL` — Vantagepoint API base URL
 - `VP_SP_GETVACATION` — Name of the Vantagepoint stored procedure used for PTO
@@ -53,12 +52,11 @@ Example `.env`:
 
 ```
 GIA_URL=https://gia.example.com
-OWUI_JWT=eyJhbGciOi...
-HARDCODED_FILE_ID=handbook-file-id
+OWUI_KEY=your-owui-api-key-here
 PA_URL=https://prod-00.westus.logic.azure.com:443/workflows/.../triggers/manual/paths/invoke
 VP_BASE_URL=https://vantagepoint.example.com
 VP_SP_GETVACATION=HR_GetVacationBalances
-DEBUG=1
+DEBUG=TRUE
 ```
 
 ## Install & Run (local)
@@ -120,7 +118,8 @@ pytest -q
 
 ## Troubleshooting
 
-- 502 from GIA endpoints: verify `OWUI_JWT`, network access to `GIA_URL`, and that the Handbook file id exists and is processed.
+- 502 from GIA endpoints: verify `OWUI_KEY` is correct, network access to `GIA_URL`, and that the Handbook file id exists and is processed.
+- Authentication errors: ensure your `OWUI_KEY` is valid and has not expired. The API key is now required for all GIA/OWUI API calls.
 - Empty PTO results: confirm Vantagepoint token retrieval and `VP_SP_GETVACATION` name.
 - Power Automate errors: check `PA_URL` and, if needed, `GRAPH_*` credentials.
 
